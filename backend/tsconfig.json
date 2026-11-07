@@ -1,0 +1,1 @@
+{"extends":"../tsconfig.base.json","compilerOptions":{"module":"NodeNext","moduleResolution":"NodeNext","noEmit":true,"allowImportingTsExtensions":true},"include":["src","test"]}
