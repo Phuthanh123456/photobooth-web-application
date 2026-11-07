@@ -1,5 +1,15 @@
 # Implementation report — 2026-11-07
 
+## Final M2G evidence update
+
+**IMPLEMENTED / TESTED WITH REAL Z30:** single-photo capture, exactly one separately approved four-photo session, verified JPG/PDF/manifest, real Live View before/after capture, SDK/backend restart/reconnection and completed-output preservation. **TESTED WITH SAFARI IPHONE:** operator-confirmed real feed. **NOT TESTED:** physical iPad (not available), disruptive USB/power, actual printing and destructive retake of the completed real output.
+
+Final software checks: **47 backend tests across 9 files; 2 Chromium/WebKit browser tests; full build passed; zero npm audit vulnerabilities**. The previously recorded lower test counts below are historical milestone results.
+
+SDK preview buffers contained padding/stale bytes beyond the main JPEG. Marker-aware trimming reduced the observed payload from 708,096 bytes to about 20KB without recompression. Actual post-change stream: 21 frames / 3.217s, 412,245 bytes total, sample JPEG 19,595 bytes at 640×424. Bright-scene guidance received a dark contrast overlay. The restart/hardware-gate/output-hash check issued no shutters. Evidence: `storage/hardware-test/m2g-live-view-optimized.json`.
+
+Current real-mode URLs: laptop **http://localhost:5176/operator**; iPhone/iPad **http://192.168.1.6:5176/display**. Backend is loopback 3004. Port 5173 may still be MOCK. Exact environment/start commands are at the top of README. An actual iPad should be tested with the same display URL before the event; iPhone confirmation is not reported as iPad acceptance.
+
 | Milestone | Status | Evidence |
 |---|---|---|
 | M0 / M1 | Preserved | `dea8274` / `34d0248`; original behavioral tests retained |
@@ -7,13 +17,13 @@
 | M2B | IMPLEMENTED / TESTED WITH MOCK | `6f084ff`: laptop dashboard, display-only iPad layout, real-time browser tests |
 | M2C | IMPLEMENTED / TESTED WITH MOCK | `39cc9a2`: final JPG/PDF/manifest verification, cleanup/reset/retake, authorization |
 | M2D | IMPLEMENTED / BUILD VERIFIED / TESTED WITH MOCK SDK | This source commit: Windows x64 C++ bridge, real adapter, strict mode/gates, boundary tests; actual SDK initialization/enumeration ran |
-| M2E | TESTED WITH REAL NIKON Z30 / PASSED | Confirmed original JPEG 5568?3712, 7,224,414 bytes, hash verified and resources released; report 040344af-4f6e-4424-9db4-297a0864d194 |
-| M2F | TESTED WITH REAL NIKON Z30 / PASSED | Exactly one START ? four full deadlines ? four verified 5568?3712 images ? verified final JPG/PDF/manifest; session 81c215e9-9632-4d26-b426-81a27e73e7cf |
-| M2G | Acceptance BLOCKED | SDK preview lifecycle/MJPEG implemented and injected-frame tests passed; actual Z30/iPad/print acceptance not run |
+| M2E | TESTED WITH REAL NIKON Z30 / PASSED | Confirmed original JPEG 5568x3712, 7,224,414 bytes, hash verified and resources released; report 040344af-4f6e-4424-9db4-297a0864d194 |
+| M2F | TESTED WITH REAL NIKON Z30 / PASSED | Exactly one START -> four full deadlines -> four verified 5568x3712 images -> verified final JPG/PDF/manifest; session 81c215e9-9632-4d26-b426-81a27e73e7cf |
+| M2G | IMPLEMENTED; IPAD ACCEPTANCE PENDING | Actual Z30 Live View and Safari iPhone confirmed; WebKit tablet viewport validated. Actual iPad unavailable; print/disruption checks not run |
 
 ## Verified results
 
-- `npm test`: 43 tests passed across 8 files, including original M1 invariants, full countdowns/four-photo sequence, failure/overlap/reconnection, composition geometry/duplicate slots, final PDF/JPG, JPEG decoding, reset during capture, cleanup/final preservation, privacy/authorization, mocked SDK/bridge crashes/timeouts and Live View stream lifecycle.
+- `npm test`: 47 tests passed across 9 files, including original M1 invariants, full countdowns/four-photo sequence, failure/overlap/reconnection, composition geometry/duplicate slots, final PDF/JPG, JPEG decoding, reset during capture, cleanup/final preservation, privacy/authorization, mocked SDK/bridge crashes/timeouts, JPEG preview trimming and Live View stream lifecycle.
 - `npm run build`: shared/backend/frontend TypeScript checks and Vite build passed.
 - `npm run test:e2e`: two browser tests passed: the real-time Chromium workflow plus WebKit iPad display/countdown/reconnection/active reset; four photos, progressive actual-template preview, original image loading, final download/manifest, display reload, cancel/reset, 1366×768 laptop fit, iPad touch viewport and narrow layout.
 - `npm audit`: zero known vulnerabilities at verification time.
@@ -43,7 +53,7 @@ For hardware, close competing clients and any real-mode backend, connect/power t
 
 ## Limitations / remaining blockers
 
-M2E has passed on the actual Z30. Real four-photo capture/export has passed. USB interruption, physical iPad identity/full Safari acceptance and actual printing remain unverified. Actual Live View has rendered in WebKit at 640?424. Single-photo ImageSaved took 743ms; CaptureComplete callback took 755ms, so split transfer duration cannot be reliably derived and remains null. The SDK-supported enum strings are checked at runtime; an unfamiliar representation fails closed instead of guessing. Device/SDK/bridge/profile changes invalidate the validation report.
+M2E has passed on the actual Z30. Real four-photo capture/export has passed. USB interruption, physical iPad identity/full Safari acceptance and actual printing remain unverified. Actual Live View has rendered in WebKit at 640x424. Single-photo ImageSaved took 743ms; CaptureComplete callback took 755ms, so split transfer duration cannot be reliably derived and remains null. The SDK-supported enum strings are checked at runtime; an unfamiliar representation fails closed instead of guessing. Device/SDK/bridge/profile changes invalidate the validation report.
 
 Only a local trusted-LAN dev deployment is configured. Automatic face-aware cropping, retention scheduling and public hosting/authentication are not implemented. Centre cover-cropping may require pose/framing adjustment on the real scene. Completed output is protected, while old cancelled/error sessions and orphan native transfers from prior processes can remain for manual inspection. An explicit current-session reset waits for native process exit before discarding registered failed transfers. SDK redistribution/license permission must be reviewed before packaging vendor components.
 
@@ -53,6 +63,6 @@ First authorized exposure: shutter observed by operator and CaptureComplete in S
 
 ## M2F physical evidence update
 
-Operator separately approved exactly one four-photo real session. `storage/hardware-test/m2f-confirmed-four-photo-2.json` records one START, authoritative deadlines, four distinct original hashes, browser completion and output verification. Shutters were 12.93 / 7.49 / 10.67 / 11.54ms after their respective deadlines. All originals decoded at 5568?3712. Final JPG is 739,156 bytes at 300dpi; PDF is 31,418,808 bytes and renders at the original page size with duplicate placement of four photos.
+Operator separately approved exactly one four-photo real session. `storage/hardware-test/m2f-confirmed-four-photo-2.json` records one START, authoritative deadlines, four distinct original hashes, browser completion and output verification. Shutters were 12.93 / 7.49 / 10.67 / 11.54ms after their respective deadlines. All originals decoded at 5568x3712. Final JPG is 739,156 bytes at 300dpi; PDF is 31,418,808 bytes and renders at the original page size with duplicate placement of four photos.
 
 Outputs: `storage/output/photobooth-81c215e9-9632-4d26-b426-81a27e73e7cf-final.jpg`, `-final.pdf`, `-manifest.json`. Their hashes remained unchanged after rejected operator RESET-without-confirmation and display RESET attempts. Public original access returned 403. Busy/reset transfer races remain mock-SDK-tested; no completed real output was deleted for testing. No additional START/shutter was issued.

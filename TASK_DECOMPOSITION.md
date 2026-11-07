@@ -1,5 +1,12 @@
 # Milestones
 
+## M2G current status — implemented; physical iPad acceptance pending
+- Actual Z30 Live View and the real four-photo workflow passed; Safari iPhone was confirmed by the operator, not a physical iPad.
+- Actual WebKit preview passed before/after four captures and after SDK restart. Hardware authorization and final hashes stayed valid; restart checks issued no shutters.
+- Trimmed padded SDK preview buffers without recompression (~708KB to ~20KB in the observed scene); added JPEG parser/stream tests and improved guidance contrast over bright video.
+- Final validation: 47 backend tests, 2 Chromium/WebKit browser tests, complete build and clean npm audit. Actual iPad, disruptive USB/power and printing remain pending. Do not mark full physical iPad acceptance complete.
+- Current real service: frontend 5176, backend loopback 3004. Default port 5173 may remain MOCK.
+
 ## M2A — Frame template and composition
 - Inspected both supplied PDF pages: two color variants with eight exact vector slots each.
 - Original asset, 300dpi artwork and extracted point geometry retained; both columns map rows 1–4 to photos 1–4.
@@ -39,20 +46,20 @@
 - Non-shutter probe actually loaded/initialized Nikon SDK and enumerated devices. Result: no available Z30, shutterCount 0. Camera capture/preview has not been validated.
 - 43 automated tests passed: preserved M0/M1 invariants, composition/storage/reset/privacy, mocked SDK/IPC faults, real-mode gates, four-photo engine via mocked SDK and MJPEG bytes/stale/disconnection handling. Build and npm audit passed.
 
-## M2E — Physical single-photo validation (BLOCKED)
+## M2E — Physical single-photo validation (PASSED)
 - Test command, confirmation gate, original-image verification and timing/report storage implemented.
-- Current hardware result: confirmed Z30 JPEG captured/transferred, decoded at 5568?3712, 7,224,414 bytes; SHA-256 verified and SDK released safely. Report 040344af-4f6e-4424-9db4-297a0864d194 passed.
+- Current hardware result: confirmed Z30 JPEG captured/transferred, decoded at 5568x3712, 7,224,414 bytes; SHA-256 verified and SDK released safely. Report 040344af-4f6e-4424-9db4-297a0864d194 passed.
 - First authorized card-only shot failed host delivery; no automatic retry. A separately approved second shot passed after fixing SDK DLL lifetime, DeviceReady handling, SaveMedia=2 and explicit save paths.
 - SDK ImageSaved 743ms / CaptureComplete 755ms; split transfer latency unavailable due callback order, recorded null. USB identity hash supplements the generic device version.
 
-## M2F — Real four-photo integration (acceptance BLOCKED)
+## M2F — Real four-photo integration (PASSED)
 - Real adapter is wired to the existing session engine and tested through a mock SDK boundary, including full deadlines and final output verification.
-- Following separate explicit four-photo authorization, one START produced exactly four verified 5568?3712 originals and COMPLETE session 81c215e9-9632-4d26-b426-81a27e73e7cf. Every shutter was after the full countdown deadline (7.49?12.93ms late).
+- Following separate explicit four-photo authorization, one START produced exactly four verified 5568x3712 originals and COMPLETE session 81c215e9-9632-4d26-b426-81a27e73e7cf. Every shutter was after the full countdown deadline (7.49-12.93ms late).
 - Actual JPG/PDF/manifest downloads and PDF rendering verified. Live reset-authorization/original-image protection checked; current completed outputs retained. Destructive real retake not executed; busy-reset safety is covered by mock SDK tests.
 
-## M2G — Live View and final validation (acceptance BLOCKED)
+## M2G — Live View and final validation (implemented; physical iPad pending)
 - Independent SDK callback lifecycle, bounded latest-frame IPC, ~8fps MJPEG streaming, aspect-preserving iPad preview and stale/disconnect handling implemented/tested with injected frames.
-- Chromium full workflow and WebKit iPad-viewport countdown/reconnection/active reset passed (2 browser tests). Actual Nikon Live View, physical iPad Safari, USB disruption and real end-to-end acceptance remain untested. This milestone is not marked complete.
+- Chromium full workflow and WebKit iPad-viewport countdown/reconnection/active reset passed (2 browser tests). Actual Nikon Live View and the four-photo capture/export workflow also passed, with operator-confirmed Safari iPhone video. Physical iPad, disruptive USB/power and actual printing remain untested; full iPad acceptance is pending.
 
 ## Implementation evidence
 - M0: workspace scripts, typed contracts, adapter boundary, mock and all four documents; build passed. Commit `dea8274`.
@@ -60,4 +67,4 @@
 - Validation: `npm test`, `npm run build`, `npm run test:e2e`. The browser test uses real 10-second countdowns; engine tests also verify exact virtual boundaries.
 - Historical M1 results: 17 backend tests and 1 Chromium integration test passed. M2 source extends those tests without discarding the original behavioral coverage; see current milestone evidence above.
 
-M2E follow-up: 43 automated tests and the complete TypeScript/Vite build passed. Real Live View was observed in WebKit at 640?424 before the separately authorized M2F session.
+M2E follow-up: 43 automated tests and the complete TypeScript/Vite build passed. Real Live View was observed in WebKit at 640x424 before the separately authorized M2F session.

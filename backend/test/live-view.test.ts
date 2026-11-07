@@ -25,10 +25,12 @@ it('does not fabricate a preview when the SDK has no frame or its latest frame i
 });
 it('streams actual supplied JPEG bytes and ends cleanly after camera disconnection',async()=> {
   const jpeg=await sharp({create:{width:64,height:32,channels:3,background:'blue'}}).jpeg().toBuffer();
-  camera.latestFrame={bytes:jpeg,at:performance.now()};const response=await fetch(url);
+  camera.latestFrame={bytes:Buffer.concat([jpeg,Buffer.alloc(8192)]),at:performance.now()};const response=await fetch(url);
   expect(response.headers.get('content-type')).toContain('multipart/x-mixed-replace');
   const reader=response.body!.getReader();const first=await reader.read();const bytes=Buffer.from(first.value!);
   expect(bytes.toString('ascii')).toContain('Content-Type: image/jpeg');expect(bytes.includes(jpeg)).toBe(true);
+  expect(bytes.toString('ascii')).toContain(`Content-Length: ${jpeg.length}`);
+  expect(bytes.length).toBeLessThan(jpeg.length+512);
   camera.latestFrame=undefined;
   const last=await reader.read();expect(last.done).toBe(true);
 });

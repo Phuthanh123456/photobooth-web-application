@@ -14,7 +14,7 @@ function App() {
     <header><span className="wordmark">CAP <small>PHOTOBOOTH</small></span><span className="badge">{mock ? 'MOCK · TEST PREVIEW' : 'NIKON Z30'}</span><span className="connection">{connected ? 'Connected' : 'Reconnecting'}</span></header>
     <section className="customer-preview" aria-label={mock ? 'Mock camera preview' : 'Nikon Live View'}>
       {state?.liveViewUrl && connected ? <img className="live-view" src={state.liveViewUrl} alt="Nikon Live View"/> : <div className="preview-placeholder" aria-hidden="true"><div className="lens"/></div>}
-      <div className="guidance"><p className="eyebrow">{status === 'COUNTDOWN' ? 'LOOK AT THE CAMERA' : 'MAKE A MEMORY'}</p>
+      <div className={`guidance${state?.liveViewUrl ? ' over-live' : ''}`}><p className="eyebrow">{status === 'COUNTDOWN' ? 'LOOK AT THE CAMERA' : 'MAKE A MEMORY'}</p>
         {connected && status === 'COUNTDOWN' && <div className="countdown">{state?.remainingSeconds}</div>}
         <h1>{message}</h1><p>{status === 'COMPLETE' ? 'All four photos are safely saved.' : mock ? 'Mock mode · no real camera image' : status === 'ERROR' ? 'Your operator will help you.' : 'Your operator will guide the session.'}</p>
       </div>

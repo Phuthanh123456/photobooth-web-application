@@ -1,8 +1,27 @@
 # CAP · Nikon Z30 photobooth
 
+Current real-camera validation setup: laptop **http://localhost:5176/operator**, display **http://192.168.1.6:5176/display**, loopback backend 3004. Port 5173 may still be a separate MOCK app. The operator confirmed real Live View in **Safari iPhone**; no physical iPad is available yet. Single-photo and four-photo Z30 capture/export have passed. Physical iPad, disruptive USB/power tests and actual printing remain pending.
+
+## Current M2G validation
+
+Actual Z30 Live View remained functional before/after four real captures and after SDK/backend restart. A post-optimization 3.217s check received 21 fresh 640×424 frames (about 6.5fps), 412,245 bytes total. The SDK buffer was 708,096 bytes/frame with trailing padding/stale data; the main JPEG was about 20KB. The server now parses JPEG markers to send only that JPEG without recompression, including correct handling of progressive scans and embedded thumbnail markers. Guidance has a dark contrast overlay over bright video.
+
+Restart/reconnection issued no shutters, kept the passed hardware report valid, and preserved every completed output hash. Evidence is private under `storage/hardware-test/m2g-live-view-optimized.json`. Final software checks: **47 backend tests, 2 Chromium/WebKit browser tests, full build passed; zero npm audit vulnerabilities**. Physical iPad acceptance remains pending; iPhone results are not described as iPad tests.
+
+For a fresh start after stopping the running services, these commands reproduce the real-mode setup:
+
+```powershell
+$env:NIKON_SDK_ROOT='D:\PhuThanh\Code\NikonSDK\RemoteModuleSDK\S-SDKZ-210BF-ALLIN'
+$env:CAMERA_MODE='REAL_NIKON'
+$env:NIKON_VALIDATION_FILE='D:\PhuThanh\Code\photobooth\storage\hardware-test\040344af-4f6e-4424-9db4-297a0864d194\result.json'
+$env:BACKEND_PORT='3004'
+$env:FRONTEND_PORT='5176'
+npm run dev
+```
+
 Continue the existing React 19/Vite, Node/TypeScript and shared-contract workspaces. Operator controls the laptop; the iPad is a read-only display. Four photos, each with a full server-controlled 10-second countdown, are duplicated into the supplied double-strip frame.
 
-**Implemented and tested with mock:** verified JPEG captures, progressive actual-template preview, high-resolution final JPG/PDF, cancellation, reset/retake, protected storage, reconnection and native SDK boundary tests. **TESTED WITH REAL NIKON Z30:** one confirmed JPEG capture passed (5568?3712, 7,224,414 bytes, verified SHA-256), and actual 640?424 Live View reached WebKit. A separately authorized four-photo Z30 session also reached COMPLETE with verified JPG/PDF. Physical tablet/phone browser identity, printing and disruption checks are tracked separately. REAL_NIKON sessions unlock only with a matching passed hardware report. See [feasibility](CAMERA_FEASIBILITY.md) and [milestones](TASK_DECOMPOSITION.md).
+**Implemented and tested with mock:** verified JPEG captures, progressive actual-template preview, high-resolution final JPG/PDF, cancellation, reset/retake, protected storage, reconnection and native SDK boundary tests. **TESTED WITH REAL NIKON Z30:** one confirmed JPEG capture passed (5568x3712, 7,224,414 bytes, verified SHA-256), and actual 640x424 Live View reached WebKit. A separately authorized four-photo Z30 session also reached COMPLETE with verified JPG/PDF. Physical tablet/phone browser identity, printing and disruption checks are tracked separately. REAL_NIKON sessions unlock only with a matching passed hardware report. See [feasibility](CAMERA_FEASIBILITY.md) and [milestones](TASK_DECOMPOSITION.md).
 
 ## Start in MOCK mode
 
@@ -111,7 +130,7 @@ npm run dev
 
 Use the actual printed report path (default is under this repo's `storage`). Enabling sessions checks its single-photo status, original JPEG/hash, device identity/version, native/Node bridge source, SDK DLL and installed profile fingerprints. Changed SDK/bridge/device/firmware requires validation again. A failed/missing report keeps Start disabled; no silent mock fallback occurs. The confirmed single-photo test has passed on this Z30. Real four-photo capture/export acceptance has also passed; physical iPad/print checks remain separate.
 
-The documented SDK Live View callback feeds a bounded latest-frame buffer to MJPEG at at most ~8fps, with at most four viewers and stale/disconnected frame rejection. Capturing pauses/restarts SDK preview internally. The iPad preserves preview aspect ratio and overlays authoritative countdown/state. No full-resolution capture polling or NX Tether screen scraping is used. Transport was tested with injected JPEG frames and an actual Z30 Live View stream in WebKit (640?424). Physical iPad confirmation remains separate.
+The documented SDK Live View callback feeds a bounded latest-frame buffer to MJPEG at at most ~8fps, with at most four viewers and stale/disconnected frame rejection. Capturing pauses/restarts SDK preview internally. The iPad preserves preview aspect ratio and overlays authoritative countdown/state. No full-resolution capture polling or NX Tether screen scraping is used. Transport was tested with injected JPEG frames and an actual Z30 Live View stream in WebKit (640x424). Physical iPad confirmation remains separate.
 
 ## iPad Wi-Fi and Windows Firewall
 
@@ -148,12 +167,12 @@ Physical iPad Safari, printing and crop/pose suitability still need operator acc
 
 ## M2E hardware result (2026-11-07)
 
-PASSED report: `storage/hardware-test/040344af-4f6e-4424-9db4-297a0864d194/result.json`; original: `original.jpg` in the same private directory. Actual JPEG is 5568?3712 and 7,224,414 bytes. ImageSaved arrived at 743ms; CaptureComplete callback arrived at 755ms, so a separate transfer duration is unavailable (`transferMs: null`), not invented. The SDK size label says L(3984x2656), but actual decoded pixels are authoritative. Device version `common` is not body firmware; validation additionally binds the Windows USB device identity hash.
+PASSED report: `storage/hardware-test/040344af-4f6e-4424-9db4-297a0864d194/result.json`; original: `original.jpg` in the same private directory. Actual JPEG is 5568x3712 and 7,224,414 bytes. ImageSaved arrived at 743ms; CaptureComplete callback arrived at 755ms, so a separate transfer duration is unavailable (`transferMs: null`), not invented. The SDK size label says L(3984x2656), but actual decoded pixels are authoritative. Device version `common` is not body firmware; validation additionally binds the Windows USB device identity hash.
 
 The first authorized shot exposed successfully but was card-only and timed out waiting for host transfer. The operator separately authorized a new shot after the fix. Configuration now explicitly sets and reads back SaveMedia Card + SDRAM (2), registers the per-capture save path, and rejects card-only mode. Nikon transport DLL search registration lasts through SDK teardown. Before any shooting job, this Z30 SDK returns S_FALSE with status FinishedOrNotStarted; readiness is confirmed through the advertised DeviceReady process, not assumed from S_FALSE.
 
 ## M2F real four-photo result (2026-11-07)
 
-Session `81c215e9-9632-4d26-b426-81a27e73e7cf` reached COMPLETE from exactly one START command, with four distinct verified 5568?3712 originals. Every shutter followed its own full server deadline (7.49?12.93ms late, none early). The operator and WebKit display reached COMPLETE and final JPG/PDF downloads were verified. Outputs are `storage/output/photobooth-81c215e9-9632-4d26-b426-81a27e73e7cf-final.jpg` (739,156 bytes), `-final.pdf` (31,418,808 bytes), and `-manifest.json`. The PDF rendered correctly at the original 419.528015?595.276001pt page size.
+Session `81c215e9-9632-4d26-b426-81a27e73e7cf` reached COMPLETE from exactly one START command, with four distinct verified 5568x3712 originals. Every shutter followed its own full server deadline (7.49-12.93ms late, none early). The operator and WebKit display reached COMPLETE and final JPG/PDF downloads were verified. Outputs are `storage/output/photobooth-81c215e9-9632-4d26-b426-81a27e73e7cf-final.jpg` (739,156 bytes), `-final.pdf` (31,418,808 bytes), and `-manifest.json`. The PDF rendered correctly at the original 419.528015x595.276001pt page size.
 
 Live checks rejected an unconfirmed completed-session RESET and a display-side RESET; final file hashes stayed unchanged. Public original-image access returned 403. Busy reset/cleanup is covered by mock SDK tests; a destructive retake of the real completed output was intentionally not performed. Private evidence is in `storage/hardware-test/m2f-confirmed-four-photo-2.json` and `m2f-output-protection.json`.

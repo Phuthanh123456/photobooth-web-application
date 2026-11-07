@@ -8,6 +8,7 @@ import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { FileSessionStorage, validSessionId } from './storage.js';
 import type { NikonCameraAdapter } from './camera.js';
+import { previewJpeg } from './preview-jpeg.js';
 
 export function createPhotoboothServer(engine: SessionEngine, imageRoot: string, storage = new FileSessionStorage(imageRoot), camera?:NikonCameraAdapter) {
   const app = express();
@@ -28,7 +29,9 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string,
       if(!frame || performance.now()-frame.at>3000) {res.end();return;}
       if(frame.at===lastAt || res.writableLength>2*1024*1024) return;
       lastAt=frame.at;
-      res.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.bytes.length}\r\n\r\n`);res.write(frame.bytes);res.write('\r\n');
+      const jpeg=previewJpeg(frame.bytes);
+      if(!jpeg) {res.end();return;}
+      res.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpeg.length}\r\n\r\n`);res.write(jpeg);res.write('\r\n');
     },120);
     res.on('close',()=>{clearInterval(interval);streams--;});
   });

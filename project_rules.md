@@ -1,5 +1,8 @@
 # Project operating and implementation rules
 
+- Record device evidence precisely: Safari iPhone confirmation and WebKit tablet-viewport tests do not establish physical iPad acceptance. Actual iPad testing remains pending until that device is available.
+- Stream only the valid main JPEG from Nikon preview buffers. Ignore padding/stale trailer data without recompression; preserve original captured JPEGs and final deliverables unchanged.
+
 - Continue the existing monorepo and history. M0/M1 are preserved. M2A–M2G are now authorized by the supplied master request; hardware-dependent acceptance remains separate from source completion.
 - Exactly four photographs; each shutter follows its own full 10,000ms server-monotonic countdown. OS/I/O scheduling can delay a shutter, never shorten its deadline.
 - Backend owns state, readiness and timing. Browser timers only monitor connection/reconnect; they never advance a countdown or trigger capture.

@@ -1,5 +1,13 @@
 # Nikon Z30 SDK feasibility and verified integration status
 
+## M2G current hardware evidence
+
+Actual Z30 preview rendered at 640×424 in WebKit before/after four real captures. The operator confirmed real Live View in **Safari iPhone**, and clarified that an iPad is not currently available. Physical iPad validation remains pending. SDK/backend restart released/reconnected the camera, preserved the passed single-photo gate and all completed output hashes, and issued no shutters.
+
+The SDK preview buffer was 708,096 bytes although the main JPEG ended at about 19.5KB; trailing bytes included padding/stale data. The MJPEG route now walks JPEG markers/scans to trim only the main JPEG, avoiding false EOI matches inside metadata/thumbnail segments. It does not recompress the frame. Tests cover padding, stale trailers, APP markers, progressive JPEG and malformed/truncated data. The real optimized stream delivered 21 frames in 3.217s (6.53fps), 412,245 bytes total, with a 19,595-byte sample JPEG.
+
+Final automated checks: 47 backend tests and 2 browser tests passed, full build passed, npm audit reported zero vulnerabilities. Actual iPad Safari, disruptive USB/power behavior and physical printing remain untested. Destructive retake of completed real output was not performed; current successful outputs remain protected.
+
 ## Actual inspected package
 
 `D:\PhuThanh\Code\NikonSDK\RemoteModuleSDK\S-SDKZ-210BF-ALLIN`
@@ -50,9 +58,9 @@ The extracted ReadMe does not establish a redistribution grant; headers/sample s
 
 **HISTORICAL M2D SDK PROBE:** DLL loading and InitializeSDK/EnumDevices ran against this package. It returned no available Nikon Z30. The test report records failure at detection with shutterCount 0. No real shutter command was issued. NX Tether/competing camera clients were not running when inspected.
 
-**CURRENT M2E ? TESTED WITH REAL NIKON Z30:** confirmed capture and transfer of a verified 5568?3712 JPEG (7,224,414 bytes). Report `storage/hardware-test/040344af-4f6e-4424-9db4-297a0864d194/result.json` passed after safe SDK shutdown. SDK ImageSaved latency 743ms; CaptureComplete callback 755ms. ImageSaved precedes that callback, so a separate transfer duration remains null. Actual Live View streamed at 640?424 and rendered in WebKit.
+**CURRENT M2E - TESTED WITH REAL NIKON Z30:** confirmed capture and transfer of a verified 5568x3712 JPEG (7,224,414 bytes). Report `storage/hardware-test/040344af-4f6e-4424-9db4-297a0864d194/result.json` passed after safe SDK shutdown. SDK ImageSaved latency 743ms; CaptureComplete callback 755ms. ImageSaved precedes that callback, so a separate transfer duration remains null. Actual Live View streamed at 640x424 and rendered in WebKit.
 
-**CURRENT M2F ? TESTED WITH REAL NIKON Z30:** exactly four verified 5568?3712 images captured after separate full countdowns; session 81c215e9-9632-4d26-b426-81a27e73e7cf reached COMPLETE and produced verified JPG/PDF/manifest. No shutter preceded its deadline. Unconfirmed destructive RESET was rejected and outputs preserved.
+**CURRENT M2F - TESTED WITH REAL NIKON Z30:** exactly four verified 5568x3712 images captured after separate full countdowns; session 81c215e9-9632-4d26-b426-81a27e73e7cf reached COMPLETE and produced verified JPG/PDF/manifest. No shutter preceded its deadline. Unconfirmed destructive RESET was rejected and outputs preserved.
 
 **NOT TESTED / BLOCKED:** USB removal during exposure, physical iPad device identity/complete Safari acceptance and actual print acceptance. Physical shutters require explicit operator confirmation. REAL_NIKON four-photo sessions remain disabled without a PASSED single-photo report matching current device-reported version, SDK/profile/native and Node bridge hashes and verified original JPEG.
 
@@ -60,4 +68,4 @@ Do not run NX Tether, Camera Control Pro or Nikon Transfer simultaneously. For t
 
 The device version in validation is the SDK-provided NkMAIDDeviceInfo.Version string. Its relationship to actual body firmware still needs confirmation on the physical Z30; no unobserved firmware value is invented. Explicit current-session reset releases a failed native process before cleaning its registered transfer directories. Older orphan transfers are left for manual inspection.
 
-M2E discovered and fixed two real SDK integration issues: retain AddDllDirectory registration for lazily loaded transport modules throughout SDK lifetime, and set SaveMedia=2 for host delivery. The first authorized card-only exposure was not automatically retried; a separately authorized second exposure produced the verified JPEG. Windows USB identity is hashed into the hardware validation fingerprint because NkMAIDDeviceInfo.Version reports `common`, not actual firmware. The SDK reports a generic L(3984x2656) capability label while the decoded original is 5568?3712; do not infer actual pixels from that label.
+M2E discovered and fixed two real SDK integration issues: retain AddDllDirectory registration for lazily loaded transport modules throughout SDK lifetime, and set SaveMedia=2 for host delivery. The first authorized card-only exposure was not automatically retried; a separately authorized second exposure produced the verified JPEG. Windows USB identity is hashed into the hardware validation fingerprint because NkMAIDDeviceInfo.Version reports `common`, not actual firmware. The SDK reports a generic L(3984x2656) capability label while the decoded original is 5568x3712; do not infer actual pixels from that label.

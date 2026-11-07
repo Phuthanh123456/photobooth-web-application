@@ -34,7 +34,7 @@ def inspect(file):
         exports=[string(u32(names+i*4)) for i in range(u32(at+24))]
     print(file.name, 'machine=', hex(u16(pe+4)), 'imports=', ', '.join(dependencies))
     if file.name=='ControlServiceLayer.dll':
-        required=['InitializeSDK','FreeSDK','EnumDevices','ConnectDevice','DisconnectDevice','StartShooting','GetShootingStatus','GetCapability','SetCapability','StartLiveView','StopLiveView']
+        required=['InitializeSDK','FreeSDK','EnumDevices','ConnectDevice','DisconnectDevice','StartShooting','GetShootingStatus','GetCapability','SetCapability','StartOperation','SetImageVideoSavePath','StartLiveView','StopLiveView']
         print('Required API exports:', {name:name in exports for name in required})
         if not all(name in exports for name in required): raise RuntimeError('Required SDK exports missing')
 
