@@ -19,6 +19,10 @@ export function nikonPaths() {
 const digest = async (file:string) => createHash('sha256').update(await readFile(file)).digest('hex');
 export async function fingerprints() {
   const {sdk,executable,profileDirectory}=nikonPaths(); const result: Record<string,string>={ bridge:await digest(executable) };
+  const {stdout}=await exec('powershell.exe',['-NoProfile','-NonInteractive','-Command',"Get-PnpDevice -PresentOnly | Where-Object { $_.Class -eq 'WPD' -and $_.FriendlyName -match '^Z\\s?30$' } | Select-Object -ExpandProperty InstanceId"],{windowsHide:true,timeout:10_000});
+  const devices=stdout.trim().split(/\r?\n/).filter(Boolean);
+  if(devices.length!==1) throw new Error('Hardware validation requires exactly one Windows Z30 USB device');
+  result['usb:Z30']=createHash('sha256').update(devices[0]).digest('hex');
   for(const name of ['ControlServiceLayer.dll','NkdPTP.dll','NkRoyalmile.dll','dnssd.dll']) result[name]=await digest(path.join(sdk,'Module/Win/BinaryFile',name));
   for(const name of profiles) result[name]=await digest(path.join(profileDirectory,name));
   for(const name of ['adapter.ts','bridge.ts','setup.ts','hardware-cli.ts']) result[`node:${name}`]=await digest(path.join(workspace,'backend','src','nikon',name));

@@ -2,7 +2,7 @@
 
 Continue the existing React 19/Vite, Node/TypeScript and shared-contract workspaces. Operator controls the laptop; the iPad is a read-only display. Four photos, each with a full server-controlled 10-second countdown, are duplicated into the supplied double-strip frame.
 
-**Implemented and tested with mock:** verified JPEG captures, progressive actual-template preview, high-resolution final JPG/PDF, cancellation, reset/retake, protected storage, reconnection and native SDK boundary tests. **Native bridge builds and the actual Nikon SDK initializes. Physical capture/Live View are NOT hardware validated:** the non-shutter probe found no available Z30. REAL_NIKON sessions stay locked until a confirmed single-photo test passes. See [feasibility](CAMERA_FEASIBILITY.md) and [milestones](TASK_DECOMPOSITION.md).
+**Implemented and tested with mock:** verified JPEG captures, progressive actual-template preview, high-resolution final JPG/PDF, cancellation, reset/retake, protected storage, reconnection and native SDK boundary tests. **TESTED WITH REAL NIKON Z30:** one confirmed JPEG capture passed (5568?3712, 7,224,414 bytes, verified SHA-256), and actual 640?424 Live View reached WebKit. Four-photo hardware acceptance, physical iPad Safari and printing are tracked separately. REAL_NIKON sessions unlock only with a matching passed hardware report. See [feasibility](CAMERA_FEASIBILITY.md) and [milestones](TASK_DECOMPOSITION.md).
 
 ## Start in MOCK mode
 
@@ -109,9 +109,9 @@ $env:NIKON_VALIDATION_FILE='D:\PhotoboothStorage\hardware-test\<UUID>\result.jso
 npm run dev
 ```
 
-Use the actual printed report path (default is under this repo's `storage`). Enabling sessions checks its single-photo status, original JPEG/hash, device identity/version, native/Node bridge source, SDK DLL and installed profile fingerprints. Changed SDK/bridge/device/firmware requires validation again. A failed/missing report keeps Start disabled; no silent mock fallback occurs. Real four-photo and Live View acceptance must then be tested on the actual Z30; they have not passed on this machine yet.
+Use the actual printed report path (default is under this repo's `storage`). Enabling sessions checks its single-photo status, original JPEG/hash, device identity/version, native/Node bridge source, SDK DLL and installed profile fingerprints. Changed SDK/bridge/device/firmware requires validation again. A failed/missing report keeps Start disabled; no silent mock fallback occurs. The confirmed single-photo test has passed on this Z30. Real four-photo acceptance and physical iPad/print checks remain separate milestones.
 
-The documented SDK Live View callback feeds a bounded latest-frame buffer to MJPEG at at most ~8fps, with at most four viewers and stale/disconnected frame rejection. Capturing pauses/restarts SDK preview internally. The iPad preserves preview aspect ratio and overlays authoritative countdown/state. No full-resolution capture polling or NX Tether screen scraping is used. Transport was tested with injected JPEG frames; physical Z30 preview/latency remains untested.
+The documented SDK Live View callback feeds a bounded latest-frame buffer to MJPEG at at most ~8fps, with at most four viewers and stale/disconnected frame rejection. Capturing pauses/restarts SDK preview internally. The iPad preserves preview aspect ratio and overlays authoritative countdown/state. No full-resolution capture polling or NX Tether screen scraping is used. Transport was tested with injected JPEG frames and an actual Z30 Live View stream in WebKit (640?424). Physical iPad confirmation remains separate.
 
 ## iPad Wi-Fi and Windows Firewall
 
@@ -144,4 +144,10 @@ Browser tests start isolated mock services on ports 5175/3003 and use `.local/e2
 - Save/output failure: check free space, permissions and hashes. COMPLETE remains blocked. Reset waits for an in-flight transfer; failed cleanup is visible instead of silently succeeding.
 - Device disconnected/bridge crashed: ERROR stops new shutters. Preserve uncertain-transfer files, reconcile the camera, restart and repeat validation as required.
 
-Physical iPad Safari, printing, actual Nikon capture, crop/pose suitability and real Live View still need operator acceptance on the hardware. The full workflow was tested in Chromium; WebKit also passed an iPad-sized touch-viewport test for countdown, reconnection, active reset and read-only controls. Neither test uses a physical iPad.
+Physical iPad Safari, printing and crop/pose suitability still need operator acceptance. Single-photo Nikon capture/transfer and real Live View in WebKit have now been observed. The full workflow was tested in Chromium; WebKit also passed an iPad-sized touch-viewport test for countdown, reconnection, active reset and read-only controls. Neither test uses a physical iPad.
+
+## M2E hardware result (2026-11-07)
+
+PASSED report: `storage/hardware-test/040344af-4f6e-4424-9db4-297a0864d194/result.json`; original: `original.jpg` in the same private directory. Actual JPEG is 5568?3712 and 7,224,414 bytes. ImageSaved arrived at 743ms; CaptureComplete callback arrived at 755ms, so a separate transfer duration is unavailable (`transferMs: null`), not invented. The SDK size label says L(3984x2656), but actual decoded pixels are authoritative. Device version `common` is not body firmware; validation additionally binds the Windows USB device identity hash.
+
+The first authorized shot exposed successfully but was card-only and timed out waiting for host transfer. The operator separately authorized a new shot after the fix. Configuration now explicitly sets and reads back SaveMedia Card + SDRAM (2), registers the per-capture save path, and rejects card-only mode. Nikon transport DLL search registration lasts through SDK teardown. Before any shooting job, this Z30 SDK returns S_FALSE with status FinishedOrNotStarted; readiness is confirmed through the advertised DeviceReady process, not assumed from S_FALSE.

@@ -11,7 +11,7 @@ export interface NikonCaptureResult { path:string; totalMs:number; captureMs:num
 export class RealNikonCameraAdapter implements NikonCameraAdapter {
   readonly kind='nikon';
   device?: NikonDevice;
-  configuration?: { quality:string; size:string };
+  configuration?: { quality:string; size:string; saveMedia:number };
   diagnostics?: Omit<NikonCaptureResult,'path'>;
   latestFrame?: { bytes:Buffer; at:number };
   private fault?: Error;
@@ -38,8 +38,8 @@ export class RealNikonCameraAdapter implements NikonCameraAdapter {
       const device=await this.bridge.request<NikonDevice>('INIT');
       if(!device || typeof device.id!=='number' || !/Z\s?30/i.test(device.name) || typeof device.version!=='string') throw new Error('SDK did not report a Nikon Z30');
       this.device=device;
-      const configuration=await this.bridge.request<{quality:string;size:string}>('CONFIGURE');
-      if(!configuration || !/fine/i.test(configuration.quality) || /raw|nef/i.test(configuration.quality) || !configuration.size) throw new Error('JPEG Large/Fine configuration not verified');
+      const configuration=await this.bridge.request<{quality:string;size:string;saveMedia:number}>('CONFIGURE');
+      if(!configuration || !/fine/i.test(configuration.quality) || /raw|nef/i.test(configuration.quality) || !configuration.size || configuration.saveMedia!==2) throw new Error('JPEG Large/Fine or PC transfer configuration not verified');
       this.configuration=configuration; this.initialized=true;
     } catch(error) { this.fault=error instanceof Error?error:new Error(String(error)); throw this.fault; }
   }

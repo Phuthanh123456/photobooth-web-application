@@ -37,11 +37,13 @@
 - Real Node adapter, serialized bounded IPC, timeouts, safe shutdown, path validation and no-fallback camera factory implemented.
 - Single-photo hardware CLI requires interactive confirmation; session gate verifies real test result, original JPEG, device and all bridge/SDK/profile hashes.
 - Non-shutter probe actually loaded/initialized Nikon SDK and enumerated devices. Result: no available Z30, shutterCount 0. Camera capture/preview has not been validated.
-- 42 automated tests passed: preserved M0/M1 invariants, composition/storage/reset/privacy, mocked SDK/IPC faults, real-mode gates, four-photo engine via mocked SDK and MJPEG bytes/stale/disconnection handling. Build and npm audit passed.
+- 43 automated tests passed: preserved M0/M1 invariants, composition/storage/reset/privacy, mocked SDK/IPC faults, real-mode gates, four-photo engine via mocked SDK and MJPEG bytes/stale/disconnection handling. Build and npm audit passed.
 
 ## M2E — Physical single-photo validation (BLOCKED)
 - Test command, confirmation gate, original-image verification and timing/report storage implemented.
-- Physical camera absent during probe; operator connection and exact one-shutter confirmation are required. No real JPEG exists from this run. Never mark PASSED based on mock evidence.
+- Current hardware result: confirmed Z30 JPEG captured/transferred, decoded at 5568?3712, 7,224,414 bytes; SHA-256 verified and SDK released safely. Report 040344af-4f6e-4424-9db4-297a0864d194 passed.
+- First authorized card-only shot failed host delivery; no automatic retry. A separately approved second shot passed after fixing SDK DLL lifetime, DeviceReady handling, SaveMedia=2 and explicit save paths.
+- SDK ImageSaved 743ms / CaptureComplete 755ms; split transfer latency unavailable due callback order, recorded null. USB identity hash supplements the generic device version.
 
 ## M2F — Real four-photo integration (acceptance BLOCKED)
 - Real adapter is wired to the existing session engine and tested through a mock SDK boundary, including full deadlines and final output verification.
@@ -56,3 +58,5 @@
 - M1: serialized monotonic engine, read-back/hash verification, atomic manifests, error/cancel acknowledgement, authoritative WebSocket snapshots, read-only display, operator UI.
 - Validation: `npm test`, `npm run build`, `npm run test:e2e`. The browser test uses real 10-second countdowns; engine tests also verify exact virtual boundaries.
 - Historical M1 results: 17 backend tests and 1 Chromium integration test passed. M2 source extends those tests without discarding the original behavioral coverage; see current milestone evidence above.
+
+M2E follow-up: 43 automated tests and the complete TypeScript/Vite build passed. Real Live View was observed in WebKit at 640?424 before the separately authorized M2F session.

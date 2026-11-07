@@ -86,7 +86,7 @@ static void CALLBACK eventProc(NKREF,ULONG event,NKPARAM data) {
       }
       std::free((void*)data);
     }
-  } else if(event==kNkMAIDEvent_CaptureComplete && capturing) { captureCompleted=Clock::now(); exposureEvent=true; }
+  } else if(event==kNkMAIDEvent_CaptureComplete && capturing && !exposureEvent) { captureCompleted=Clock::now(); exposureEvent=true; }
   else if(event==kNkMAIDEvent_AcquireFailed_ImageNotSaved || event==kNkMAIDEvent_StorageFull_ImageNotSaved) { transferError="SDK reported image transfer/storage failure"; poisoned=true; changed.notify_all(); }
   else if((event==kNkMAIDEvent_CapChange || event==kNkMAIDEvent_CapChangeOperationOnly) && data) std::free((void*)data);
 }
@@ -97,8 +97,10 @@ static void check(long result,const char* operation) { if(result!=0) throw std::
 
 class Camera {
   HMODULE dll=nullptr;
+  DLL_DIRECTORY_COOKIE dllDirectory=nullptr;
   bool initialized=false,connected=false;
   NkMAIDDeviceInfo device{};
+  std::vector<NkMAIDCapInfo> capabilities;
   NkMAIDCSCallback callbacks{};
   LPMAIDInitializeSDKProc initialize=nullptr;
   LPMAIDFreeSDKProc release=nullptr;
@@ -107,6 +109,8 @@ class Camera {
   LPMAIDEnumDevices enumerate=nullptr;
   LPMAIDStartShooting shoot=nullptr;
   LPMAIDGetShootingStatus shootingStatus=nullptr;
+  LPMAIDStartOperation startOperation=nullptr;
+  LPMAIDSetImageVideoSavePath setSavePath=nullptr;
   LPMAIDGetCapability getCapability=nullptr;
   LPMAIDSetCapability setCapability=nullptr;
   LPMAIDStartLiveView startPreview=nullptr;
@@ -117,6 +121,12 @@ class Camera {
     check(getCapability(cap,request,value,type),"GetCapability");
     if(!value || type!=kNkMAIDDataType_EnumPtr) { std::free(value); throw std::runtime_error("Expected enumerated camera setting"); }
     NkMAIDEnum result=*(NkMAIDEnum*)value; std::free(value); return result;
+  }
+  ULONG unsignedValue(ULONG capability) {
+    LPVOID value=nullptr; eNkMAIDDataType type=kNkMAIDDataType_Null;
+    check(getCapability(capability,kNkSDKGetSettingValue,value,type),"GetCapability unsigned");
+    if(!value || type!=kNkMAIDDataType_UnsignedPtr) {std::free(value);throw std::runtime_error("Unexpected unsigned capability type");}
+    ULONG result=*(ULONG*)value;std::free(value);return result;
   }
   std::string setJpegSetting(ULONG cap,bool quality) {
     auto values=getEnum(cap,kNkSDKGetSettingSupportedValueArray);
@@ -142,6 +152,25 @@ class Camera {
     auto verified=getEnum(cap,kNkSDKGetSettingValue); bool matches=verified.ulValue==(ULONG)chosen; std::free(verified.pData);
     if(!matches) throw std::runtime_error("Camera setting verification failed"); return labels[chosen];
   }
+  bool hardwareReady() {
+    eNkMAIDShootingStatus status=kNkMAIDShootingInvalidStatus;
+    auto result=shootingStatus(status);
+    if(result==S_OK && status!=kNkSDKShootingFinishedOrNotStarted) return false;
+    // On this Z30, the SDK returns S_FALSE with FinishedOrNotStarted before a
+    // shooting job exists. Do not equate that with readiness: query the body's
+    // explicitly advertised DeviceReady process instead.
+    const auto capability=std::find_if(capabilities.begin(),capabilities.end(),[](const auto& cap) {
+      return cap.ulID==kNkMAIDCapability_DeviceReady && cap.ulType==kNkMAIDCapType_Process && (cap.ulOperations&kNkMAIDCapOperation_Start);
+    });
+    if(capability!=capabilities.end()) {
+      if(result!=S_OK && result!=S_FALSE) check(result,"GetShootingStatus");
+      auto readyResult=startOperation(kNkMAIDCapability_DeviceReady,nullptr,nullptr);
+      if(readyResult==kNkMAIDResult_DeviceBusy) return false;
+      check(readyResult,"DeviceReady"); return true;
+    }
+    check(result,"GetShootingStatus (DeviceReady capability unavailable)");
+    return status==kNkSDKShootingFinishedOrNotStarted;
+  }
  public:
   ~Camera() { try {close();} catch(...) {} }
   void close() {
@@ -149,20 +178,25 @@ class Camera {
     if(connected) { if(preview) stopPreview(nullptr,nullptr); preview=false; disconnectResult=disconnect(); connected=false; }
     if(initialized) { freeResult=release(); initialized=false; }
     if(dll) { FreeLibrary(dll);dll=nullptr; }
+    if(dllDirectory) {RemoveDllDirectory(dllDirectory);dllDirectory=nullptr;}
     check(disconnectResult,"DisconnectDevice");check(freeResult,"FreeSDK");
   }
   std::string open(const fs::path& sdk) {
     if(initialized) throw std::runtime_error("SDK already initialized");
     fs::path bin=sdk/L"Module"/L"Win"/L"BinaryFile";
-    SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS); auto cookie=AddDllDirectory(bin.c_str());
+    // Nikon loads its transport DLLs lazily during discovery, after the main DLL load.
+    // Retain the scoped SDK search directory until FreeSDK/FreeLibrary have completed.
+    SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS); dllDirectory=AddDllDirectory(bin.c_str());
+    if(!dllDirectory) throw std::runtime_error("Unable to register the Nikon SDK DLL directory");
     dll=LoadLibraryExW((bin/L"ControlServiceLayer.dll").c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-    if(cookie) RemoveDllDirectory(cookie);
     if(!dll) throw std::runtime_error("Unable to load Nikon SDK/dependencies; Windows error "+std::to_string(GetLastError()));
 #define BIND(field,type,name) field=symbol<type>(dll,name)
     BIND(initialize,LPMAIDInitializeSDKProc,"InitializeSDK"); BIND(release,LPMAIDFreeSDKProc,"FreeSDK");
     BIND(connect,LPMAIDConnectDeviceProc,"ConnectDevice"); BIND(disconnect,LPMAIDDisconnectDeviceProc,"DisconnectDevice");
     BIND(enumerate,LPMAIDEnumDevices,"EnumDevices"); BIND(shoot,LPMAIDStartShooting,"StartShooting");
     BIND(shootingStatus,LPMAIDGetShootingStatus,"GetShootingStatus"); BIND(getCapability,LPMAIDGetCapability,"GetCapability"); BIND(setCapability,LPMAIDSetCapability,"SetCapability");
+    BIND(startOperation,LPMAIDStartOperation,"StartOperation");
+    BIND(setSavePath,LPMAIDSetImageVideoSavePath,"SetImageVideoSavePath");
     BIND(startPreview,LPMAIDStartLiveView,"StartLiveView"); BIND(stopPreview,LPMAIDStopLiveView,"StopLiveView");
 #undef BIND
     callbacks.pUIReqProc=(LPNKFUNC)uiRequest; callbacks.pfnEventProc=(LPNKFUNC)eventProc; callbacks.pProgressProc=(LPNKFUNC)progress;
@@ -171,28 +205,40 @@ class Camera {
     check(initialize(allocateMemory,releaseMemory,&callbacks,&devices,nullptr),"InitializeSDK"); initialized=true;
     // Device discovery may be asynchronous. Enumeration alone never triggers a shutter.
     auto deadline=Clock::now()+std::chrono::seconds(5); bool found=false;
+    std::string observed="No devices enumerated";
     do {
+      observed="Enumerated "+std::to_string(devices?devices->ulElements:0)+" device(s)";
       if(devices && devices->pDeviceData) for(ULONG i=0;i<devices->ulElements;i++) {
         auto& d=devices->pDeviceData[i]; std::string name(d.Name,strnlen(d.Name,64));
+        observed+="; "+name+" available="+(d.Availability?std::string("true"):std::string("false"))+" ownerPID="+std::to_string(d.ulConnectedPID);
         if(d.Availability && (name.find("Z30")!=std::string::npos || name.find("Z 30")!=std::string::npos)) {device=d;found=true;break;}
       }
       freeDevices(devices);devices=nullptr; if(found) break;
       std::this_thread::sleep_for(std::chrono::milliseconds(200)); check(enumerate(devices,nullptr,nullptr),"EnumDevices");
     } while(Clock::now()<deadline);
     freeDevices(devices);
-    if(!found) throw std::runtime_error("No available Nikon Z30 detected. Close NX Tether and check USB.");
-    check(connect(device.ID,nullptr),"ConnectDevice"); connected=true;
+    if(!found) throw std::runtime_error("No available Nikon Z30 detected. "+observed+". Close NX Tether and check USB.");
+    LPNkMAIDEnumCapInfo info=nullptr;
+    check(connect(device.ID,&info),"ConnectDevice"); connected=true;
+    if(info) {if(info->pCapArray) capabilities.assign(info->pCapArray,info->pCapArray+info->ulCapCount);std::free(info->pCapArray);std::free(info);}
     return "{\"id\":"+std::to_string(device.ID)+",\"name\":"+quote(std::string(device.Name,strnlen(device.Name,64)))+",\"version\":"+quote(std::string(device.Version,strnlen(device.Version,64)))+"}";
   }
   void ready() {
     if(poisoned || !connected) throw std::runtime_error("Camera state is uncertain/disconnected; restart and validate manually");
-    eNkMAIDShootingStatus status=kNkMAIDShootingInvalidStatus; check(shootingStatus(status),"GetShootingStatus");
-    if(status!=kNkSDKShootingFinishedOrNotStarted) throw std::runtime_error("Camera busy");
+    if(!hardwareReady()) throw std::runtime_error("Camera busy");
     LPNkMAIDEnumDevices devices=nullptr; check(enumerate(devices,nullptr,nullptr),"EnumDevices"); bool present=false;
     if(devices && devices->pDeviceData) for(ULONG i=0;i<devices->ulElements;i++) if(devices->pDeviceData[i].ID==device.ID) present=true;
     freeDevices(devices); if(!present) {poisoned=true;throw std::runtime_error("Camera disconnected");}
   }
-  std::string configure() { ready(); auto quality=setJpegSetting(kNkMAIDCapability_CompressionLevel,true); auto size=setJpegSetting(kNkMAIDCapability_ImageSize,false); return "{\"quality\":"+quote(quality)+",\"size\":"+quote(size)+"}"; }
+  std::string configure() {
+    ready(); auto quality=setJpegSetting(kNkMAIDCapability_CompressionLevel,true); auto size=setJpegSetting(kNkMAIDCapability_ImageSize,false);
+    // Card-only (0) captures successfully but never transfers a JPEG to the PC.
+    // Retain the on-card original while explicitly enabling host/SDRAM transfer.
+    ULONG media=kNkMAIDSaveMedia_Card_SDRAM;
+    check(setCapability(kNkMAIDCapability_SaveMedia,&media,kNkMAIDDataType_UnsignedPtr),"Set SaveMedia Card + SDRAM");
+    if(unsignedValue(kNkMAIDCapability_SaveMedia)!=media) throw std::runtime_error("PC image transfer target was not verified");
+    return "{\"quality\":"+quote(quality)+",\"size\":"+quote(size)+",\"saveMedia\":"+std::to_string(media)+"}";
+  }
   void live(bool enable) {
     ready();
     if(enable) {
@@ -211,6 +257,8 @@ class Camera {
     auto location=fs::absolute(directory).lexically_normal();
     if(location.native().size()>=1024) throw std::runtime_error("Capture path too long");
     wcscpy_s(request.ImageSavePath,1024,location.c_str());
+    if(unsignedValue(kNkMAIDCapability_SaveMedia)!=kNkMAIDSaveMedia_Card_SDRAM) throw std::runtime_error("SaveMedia changed; refusing card-only capture");
+    check(setSavePath(location.c_str(),L""),"SetImageVideoSavePath");
     {std::lock_guard<std::mutex> lock(stateMutex);transferDirectory=location;savedFile.clear();transferError.clear();capturing=true;exposureEvent=false;captureStarted=Clock::now();}
     // No retry: any error after this point is an uncertain physical shutter.
     try {
@@ -221,17 +269,17 @@ class Camera {
         changed.wait_for(lock,std::chrono::milliseconds(50));
         if(!transferError.empty()) throw std::runtime_error(transferError);
         const bool saved=!savedFile.empty(); lock.unlock();
-        if(saved) { eNkMAIDShootingStatus status=kNkMAIDShootingInvalidStatus; check(shootingStatus(status),"GetShootingStatus"); if(status==kNkSDKShootingFinishedOrNotStarted) break; }
+        if(saved && hardwareReady()) break;
       }
       std::string result;
       { std::lock_guard<std::mutex> lock(stateMutex);
-        if(savedFile.empty() || Clock::now()>=deadline) throw std::runtime_error("JPEG transfer timeout; shutter outcome uncertain");
+        if(savedFile.empty() || Clock::now()>=deadline) throw std::runtime_error(std::string("JPEG transfer timeout; shutter outcome uncertain; CaptureComplete observed=")+(exposureEvent?"true":"false"));
         if(!fs::exists(savedFile) || fs::file_size(savedFile)==0) throw std::runtime_error("SDK saved event did not produce a nonempty file");
         auto total=std::chrono::duration_cast<std::chrono::milliseconds>(imageSaved-captureStarted).count();
         result="{\"path\":"+quote(utf8(savedFile))+",\"totalMs\":"+std::to_string(total)+",\"captureMs\":";
         result+=exposureEvent?std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(captureCompleted-captureStarted).count()):"null";
         result+=",\"transferMs\":";
-        result+=exposureEvent?std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(imageSaved-captureCompleted).count()):"null";
+        result+=exposureEvent && captureCompleted<=imageSaved?std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(imageSaved-captureCompleted).count()):"null";
         result+="}";capturing=false;
       }
       if(resume) { try {live(true);} catch(const std::exception& e) {emit("0","PREVIEW_ERROR",quote(e.what()));} }

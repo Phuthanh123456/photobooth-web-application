@@ -16,7 +16,7 @@ class FakeSDKBridge extends EventEmitter implements BridgePort {
   calls:BridgeCommand[]=[];
   respond=vi.fn(async(command:BridgeCommand,arg?:string):Promise<unknown>=> {
     if(command==='INIT') return this.device;
-    if(command==='CONFIGURE') return {quality:'JPEG Fine',size:'Large'};
+    if(command==='CONFIGURE') return {quality:'JPEG Fine',size:'Large',saveMedia:2};
     if(command==='CAPTURE') {
       const directory=Buffer.from(arg!,'base64').toString('utf8'); const file=path.join(directory,'DSC_0001.JPG');
       const jpeg=await sharp({create:{width:300,height:200,channels:3,background:'#206050'}}).jpeg().toBuffer();
@@ -50,6 +50,14 @@ it('requires confirmation for the single shutter and consumes the permission exa
   await expect(camera.capture(request)).rejects.toThrow('confirmation');
   expect(bridge.calls.filter(c=>c==='CAPTURE')).toHaveLength(1);
   expect(()=>camera.assertSessionAllowed()).toThrow('locked');
+});
+it('rejects a card-only configuration before granting any shutter permission',async()=> {
+  const bridge=new FakeSDKBridge();
+  bridge.respond.mockImplementation(async command=>command==='INIT'?bridge.device:{quality:'JPEG Fine',size:'Large',saveMedia:0});
+  const camera=new RealNikonCameraAdapter(bridge,'unused');
+  await expect(camera.initialize()).rejects.toThrow('PC transfer configuration');
+  expect(()=>camera.confirmOneHardwareShutter()).toThrow('PC transfer configuration');
+  expect(bridge.calls).not.toContain('CAPTURE');
 });
 it('latches an uncertain shutter failure, never retries and prevents overlapping commands',async()=> {
   const {camera,bridge}=await setup();camera.confirmOneHardwareShutter();

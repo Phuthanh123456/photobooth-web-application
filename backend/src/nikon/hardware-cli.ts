@@ -36,7 +36,7 @@ else if(mode==='--probe' || mode==='--capture') {
       result={...result,status:'PASSED',original:'original.jpg',bytes:saved.length,sha256,...dimensions,latency:camera.diagnostics};
       console.log(`Single-photo capture verified (${dimensions.width}×${dimensions.height}).`,camera.diagnostics);
     }
-  } catch(error) { result={...result,status:'FAILED',error:String(error)}; console.error(String(error)); process.exitCode=1; }
+  } catch(error) { result={...result,device:camera?.device,configuration:camera?.configuration,status:'FAILED',error:String(error)}; console.error(String(error)); process.exitCode=1; }
   finally {
     try { await camera?.close(); }
     catch(error) {result={...result,status:'FAILED',error:`Resource release failed: ${String(error)}`};process.exitCode=1;}
