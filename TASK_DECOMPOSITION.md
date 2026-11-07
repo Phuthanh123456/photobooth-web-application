@@ -13,3 +13,9 @@
 
 ## Deferred: M2 and real camera integration
 Requires explicit approval. No SDK loading, real shutter, live view, printing, or sharing in M0/M1.
+
+## Implementation evidence
+- M0: workspace scripts, typed contracts, adapter boundary, mock and all four documents; build passed. Commit `dea8274`.
+- M1: serialized monotonic engine, read-back/hash verification, atomic manifests, error/cancel acknowledgement, authoritative WebSocket snapshots, read-only display, operator UI.
+- Validation: `npm test`, `npm run build`, `npm run test:e2e`. The browser test uses real 10-second countdowns; engine tests also verify exact virtual boundaries.
+- Final results: 17 backend tests passed, 1 Chromium browser integration test passed (42.9 seconds), TypeScript/Vite build passed, and npm audit reported zero vulnerabilities. Physical iPad/Nikon testing is not part of this mock iteration.
