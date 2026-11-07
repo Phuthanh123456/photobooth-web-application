@@ -1,5 +1,17 @@
 # Implementation report — 2026-11-07
 
+## Fourth-photo native SDK correction (current verified binary)
+
+Failed session `96a50b69-7d06-4981-aff6-ba717293638c` kept three verified originals. Its log showed DeviceReady success followed by EnumDevices failure (-108) during live preview before the fourth shutter. Removed USB rediscovery from ready(): connected-body DeviceReady still rejects busy/disconnected states. Added bounded waits for explicit busy responses, latched readiness/capture failures, and rejection of late preview frames after faults. Added GetLiveViewStatus-based recovery of orphan remote preview and orderly native console/backend shutdown.
+
+Regression uses the actual production C++ Camera with injected SDK functions: repeated readiness cannot call a failing discovery API; busy/disconnected/status failures issue zero shutters; orphan preview is stopped before restarting. Run `npm run camera:test:native`. SDK export/header/manual signatures were verified locally. No vendor files were committed.
+
+Validation: native regression passed, 50 backend tests passed, 3 Chromium/WebKit E2E tests passed, full build passed. Real no-shutter report `storage/hardware-test/readiness-fix-1794069585087.json` passed 80 READY checks, three preview restart cycles, 80 distinct JPEG previews in 51.9 seconds, clean close, and preservation of all three earlier originals.
+
+The operator then explicitly approved five new photos: one single-photo validation plus one four-photo session. Current single-photo report `storage/hardware-test/2849c116-f40d-4d14-9ee0-03d6895eb0f1/result.json` PASSED, original 5568x3712, 7,862,935 bytes, ImageSaved 953ms. Four-photo report `storage/hardware-test/readiness-fix-confirmed-four-photo.json` PASSED with one START and session `c7a462b6-45fa-4fb7-8559-15271f31c61f`. All four decoded 5568x3712 JPEGs verified; deadline lateness 16.7/34.7/38.1/10.6ms, none early. Final JPG and one-page PDF verified; large completed-frame display reached WebKit, with camera view removed. SDK log for bridge PID 42376 counted four StartShooting calls and one initial device discovery. Eight fresh previews were received after completion. No extra shutters/retries were sent. Completed output remains in storage/output and the service remains COMPLETE.
+
+The following sections describe earlier evidence; older report fingerprints do not authorize this modified binary. Physical iPad and printing acceptance remain pending.
+
 ## Live View recovery follow-up
 
 The display now reads fresh JPEG snapshots with server frame IDs, bounded sequential requests and automatic reconnection. It removes stale images instead of leaving the final MJPEG frame frozen on screen. Tests cover HTTP failure/recovery and a stream that stops advancing its frame ID. Preview transport cannot send capture commands. The old MJPEG endpoint remains for compatibility.

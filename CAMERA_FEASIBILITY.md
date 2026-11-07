@@ -1,6 +1,10 @@
 # Nikon Z30 SDK feasibility and verified integration status
 
-## M2G current hardware evidence
+## Current native correction and revalidation
+
+Connected-body readiness no longer invokes USB discovery: the failed fourth-photo trace showed DeviceReady success followed by EnumDevices -108. The bridge uses the documented DeviceReady process to detect busy/disconnected bodies; discovery is confined to initial connection. Documented GetLiveViewStatus permits safe recovery of orphan remote preview without issuing a shutter. New native and Node fingerprints were independently validated by the approved single-photo report `2849c116-f40d-4d14-9ee0-03d6895eb0f1`, then exactly one approved four-photo session `c7a462b6-45fa-4fb7-8559-15271f31c61f` passed with four verified originals and final JPG/PDF. SDK log records four shutter calls and one initial discovery. Hardware no-shutter test passed 80 readiness checks/three preview restarts. Native regression, 50 backend tests, three browser tests and builds passed. See IMPLEMENTATION_REPORT.md for private evidence paths. Earlier reports remain historical and cannot unlock the changed binary.
+
+## Earlier M2G hardware evidence
 
 Actual Z30 preview rendered at 640×424 in WebKit before/after four real captures. The operator confirmed real Live View in **Safari iPhone**, and clarified that an iPad is not currently available. Physical iPad validation remains pending. SDK/backend restart released/reconnected the camera, preserved the passed single-photo gate and all completed output hashes, and issued no shutters.
 

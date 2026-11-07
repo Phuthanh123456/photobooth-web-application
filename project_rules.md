@@ -1,5 +1,7 @@
 # Project operating and implementation rules
 
+- Discover Nikon devices only when establishing the SDK connection. Do not call EnumDevices from connected-body readiness, preview transitions or capture: use DeviceReady and propagate its busy/disconnected errors. Preview recovery may restart remote Live View, never replay a shutter. Run the native SDK regression after native changes, and revalidate changed fingerprints before enabling real sessions.
+
 - Record device evidence precisely: Safari iPhone confirmation and WebKit tablet-viewport tests do not establish physical iPad acceptance. Actual iPad testing remains pending until that device is available.
 - Stream only the valid main JPEG from Nikon preview buffers. Ignore padding/stale trailer data without recompression; preserve original captured JPEGs and final deliverables unchanged.
 

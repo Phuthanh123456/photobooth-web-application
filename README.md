@@ -2,7 +2,15 @@
 
 Current real-camera validation setup: laptop **http://localhost:5176/operator**, display **http://192.168.1.6:5176/display**, loopback backend 3004. Port 5173 may still be a separate MOCK app. The operator confirmed real Live View in **Safari iPhone**; no physical iPad is available yet. Single-photo and four-photo Z30 capture/export have passed. Physical iPad, disruptive USB/power tests and actual printing remain pending.
 
-## Current M2G validation
+## Fourth-photo SDK fix (current)
+
+The failing session saved three photos, then `EnumDevices` failed with -108 immediately after a successful DeviceReady. The bridge now discovers devices only when connecting; every connected-body readiness check uses DeviceReady, with no USB rescan during capture or preview. Explicit body-busy responses are awaited without retrying shutters. Remote preview left by an earlier process is stopped/restarted using documented GetLiveViewStatus. Terminal shutdown lets the backend close the SDK cleanly.
+
+Current binary validation passed: one separately approved JPEG (`2849c116-f40d-4d14-9ee0-03d6895eb0f1`), then exactly one approved four-photo session (`c7a462b6-45fa-4fb7-8559-15271f31c61f`). All four 5568x3712 images were verified, full 10-second countdowns respected, final JPG/PDF produced, and the display showed the large completed frame. SDK log counted exactly four StartShooting calls. Live View remained fresh after photo 4. The earlier failed session's three saved photos were preserved.
+
+Checks: 50 backend tests, 3 browser tests, native C++ regression, builds, and a real no-shutter test with 80 readiness checks plus three preview restarts passed. Run native regression with `npm run camera:test:native` after setting NIKON_SDK_ROOT. Older hardware reports below are historical and cannot unlock the changed binary.
+
+## Earlier M2G validation evidence
 
 Actual Z30 Live View remained functional before/after four real captures and after SDK/backend restart. A post-optimization 3.217s check received 21 fresh 640×424 frames (about 6.5fps), 412,245 bytes total. The SDK buffer was 708,096 bytes/frame with trailing padding/stale data; the main JPEG was about 20KB. The server now parses JPEG markers to send only that JPEG without recompression, including correct handling of progressive scans and embedded thumbnail markers. Guidance has a dark contrast overlay over bright video.
 
@@ -13,7 +21,7 @@ For a fresh start after stopping the running services, these commands reproduce 
 ```powershell
 $env:NIKON_SDK_ROOT='D:\PhuThanh\Code\NikonSDK\RemoteModuleSDK\S-SDKZ-210BF-ALLIN'
 $env:CAMERA_MODE='REAL_NIKON'
-$env:NIKON_VALIDATION_FILE='D:\PhuThanh\Code\photobooth\storage\hardware-test\040344af-4f6e-4424-9db4-297a0864d194\result.json'
+$env:NIKON_VALIDATION_FILE='D:\PhuThanh\Code\photobooth\storage\hardware-test\2849c116-f40d-4d14-9ee0-03d6895eb0f1\result.json'
 $env:BACKEND_PORT='3004'
 $env:FRONTEND_PORT='5176'
 npm run dev

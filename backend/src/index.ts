@@ -13,12 +13,18 @@ if (interrupted) engine.restoreInterrupted(interrupted);
 const { server, wss } = createPhotoboothServer(engine, root, storage, camera);
 const port = Number(process.env.BACKEND_PORT ?? 3001);
 server.listen(port, '127.0.0.1', () => console.log(`Photobooth backend: http://localhost:${port}; storage:`, root));
+let shuttingDown=false;
 async function shutdown() {
-  if (engine.snapshot().busy && !['CANCELLED', 'ERROR'].includes(engine.snapshot().status)) engine.cancel();
-  await engine.settled();
-  if ('close' in camera && typeof camera.close === 'function') await camera.close();
-  for (const client of wss.clients) client.terminate();
-  server.close();
+  if(shuttingDown) return;shuttingDown=true;
+  try {
+    if (engine.snapshot().busy && !['CANCELLED', 'ERROR'].includes(engine.snapshot().status)) engine.cancel();
+    await engine.settled();
+    if ('close' in camera && typeof camera.close === 'function') await camera.close();
+  } catch(error) {console.error('Camera shutdown failed; inspect camera before reconnecting:',String(error));}
+  finally {
+    for (const client of wss.clients) client.terminate();
+    server.close();
+  }
 }
 process.once('SIGINT', () => void shutdown());
 process.once('SIGTERM', () => void shutdown());

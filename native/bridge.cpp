@@ -96,6 +96,7 @@ template<typename T> static T symbol(HMODULE dll,const char* name) {
 static void check(long result,const char* operation) { if(result!=0) throw std::runtime_error(std::string(operation)+" failed (SDK code "+std::to_string(result)+")"); }
 
 class Camera {
+  friend struct NativeCameraRegression;
   HMODULE dll=nullptr;
   DLL_DIRECTORY_COOKIE dllDirectory=nullptr;
   bool initialized=false,connected=false;
@@ -107,6 +108,7 @@ class Camera {
   LPMAIDConnectDeviceProc connect=nullptr;
   LPMAIDDisconnectDeviceProc disconnect=nullptr;
   LPMAIDEnumDevices enumerate=nullptr;
+  LPMAIDGetLiveViewStatus liveViewStatus=nullptr;
   LPMAIDStartShooting shoot=nullptr;
   LPMAIDGetShootingStatus shootingStatus=nullptr;
   LPMAIDStartOperation startOperation=nullptr;
@@ -198,6 +200,7 @@ class Camera {
     BIND(startOperation,LPMAIDStartOperation,"StartOperation");
     BIND(setSavePath,LPMAIDSetImageVideoSavePath,"SetImageVideoSavePath");
     BIND(startPreview,LPMAIDStartLiveView,"StartLiveView"); BIND(stopPreview,LPMAIDStopLiveView,"StopLiveView");
+    BIND(liveViewStatus,LPMAIDGetLiveViewStatus,"GetLiveViewStatus");
 #undef BIND
     callbacks.pUIReqProc=(LPNKFUNC)uiRequest; callbacks.pfnEventProc=(LPNKFUNC)eventProc; callbacks.pProgressProc=(LPNKFUNC)progress;
     callbacks.pDataProc=(LPNKFUNC)imageData; callbacks.pLiveViewDataProc=(LPNKFUNC)liveData;
@@ -226,9 +229,10 @@ class Camera {
   void ready() {
     if(poisoned || !connected) throw std::runtime_error("Camera state is uncertain/disconnected; restart and validate manually");
     if(!hardwareReady()) throw std::runtime_error("Camera busy");
-    LPNkMAIDEnumDevices devices=nullptr; check(enumerate(devices,nullptr,nullptr),"EnumDevices"); bool present=false;
-    if(devices && devices->pDeviceData) for(ULONG i=0;i<devices->ulElements;i++) if(devices->pDeviceData[i].ID==device.ID) present=true;
-    freeDevices(devices); if(!present) {poisoned=true;throw std::runtime_error("Camera disconnected");}
+    // DeviceReady talks to the connected body and propagates disconnect errors.
+    // EnumDevices is discovery, not readiness. Refreshing USB discovery here
+    // races the SDK Live View/event thread (observed DeviceFailed/-108).
+    // Discover once in open(); never rediscover during READY/LIVE/CAPTURE.
   }
   std::string configure() {
     ready(); auto quality=setJpegSetting(kNkMAIDCapability_CompressionLevel,true); auto size=setJpegSetting(kNkMAIDCapability_ImageSize,false);
@@ -241,13 +245,22 @@ class Camera {
   }
   void live(bool enable) {
     ready();
+    eNkMAIDLVStatus status=eNkMAIDLVStatus_OFF;
+    check(liveViewStatus(status),"GetLiveViewStatus");
+    // A former SDK process may have left remote LV enabled. Reclaim only remote
+    // preview, never camera/menu live view, and never issue a shutter here.
+    if(enable && preview && status==eNkMAIDLVStatus_ON_RemoteLV) return;
+    if(preview || status==eNkMAIDLVStatus_ON_RemoteLV) {
+      check(stopPreview(nullptr,nullptr),"StopLiveView");preview=false;
+      std::lock_guard<std::mutex> lock(frameMutex);latestFrame.clear();
+    }
     if(enable) {
       LPVOID value=nullptr; eNkMAIDDataType type=kNkMAIDDataType_Null;
       check(getCapability(kNkMAIDCapability_LiveViewProhibit,kNkSDKGetSettingValue,value,type),"LiveViewProhibit");
       if(!value || type!=kNkMAIDDataType_UnsignedPtr) {std::free(value);throw std::runtime_error("Unknown Live View prohibition data type");}
       ULONG prohibit=*(ULONG*)value; std::free(value); if(prohibit) throw std::runtime_error("Camera prohibits Live View");
       check(startPreview(nullptr,nullptr),"StartLiveView"); preview=true;
-    } else { if(preview) check(stopPreview(nullptr,nullptr),"StopLiveView"); preview=false; }
+    }
   }
   std::string capture(const fs::path& directory) {
     ready(); const bool resume=preview; if(resume) live(false);
@@ -289,6 +302,11 @@ class Camera {
 };
 int main(int argc,char** argv) {
   if(argc!=2) {std::cerr<<"Usage: nikon-bridge <external-sdk-root>\n";return 2;}
+  // Let Node handle terminal interruption and send CLOSE. Otherwise Windows
+  // terminates this child before StopLiveView/DisconnectDevice can run.
+  SetConsoleCtrlHandler([](DWORD event)->BOOL {
+    return event==CTRL_C_EVENT || event==CTRL_BREAK_EVENT;
+  },TRUE);
   // One input command at a time. Callback frames are coalesced into one bounded slot.
   std::thread sender([] {while(running) {std::this_thread::sleep_for(std::chrono::milliseconds(120));std::vector<unsigned char> frame;{std::lock_guard<std::mutex> lock(frameMutex);frame.swap(latestFrame);}if(!frame.empty()) emit("0","FRAME",b64(frame.data(),frame.size()));}});
   Camera camera;

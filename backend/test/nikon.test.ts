@@ -73,7 +73,35 @@ it('handles native disconnection and removes stale Live View frames',async()=> {
   const {camera,bridge}=await setup();
   bridge.emit('frame',Buffer.from([255,216,255,217]));expect(camera.latestFrame).toBeDefined();
   bridge.emit('fault',new Error('Camera disconnected'));expect(camera.latestFrame).toBeUndefined();
+  bridge.emit('frame',Buffer.from([255,216,255,217]));expect(camera.latestFrame).toBeUndefined();
+  expect(camera.previewStatus).toContain('Capture locked');
   await expect(camera.waitUntilReady()).rejects.toThrow('disconnected');
+});
+it('waits through body-busy readiness responses without sending a shutter',async()=> {
+  const {camera,bridge}=await setup();let checks=0;
+  bridge.respond.mockImplementation(async command=> {
+    if(command==='READY' && ++checks<3) throw new Error('Camera busy');
+    return {};
+  });
+  await camera.waitUntilReady();expect(checks).toBe(3);
+  expect(bridge.calls).not.toContain('CAPTURE');
+});
+it('latches failed readiness before a fourth capture, preserving the three verified photos',async()=> {
+  const {root,camera,bridge}=await setup();camera.authorizeValidatedSession(bridge.device);
+  const respond=bridge.respond.getMockImplementation()!;let captures=0;
+  bridge.respond.mockImplementation(async(command,arg)=> {
+    if(command==='READY' && captures===3) throw new Error('DeviceReady failed: disconnected');
+    const value=await respond(command,arg);if(command==='CAPTURE') captures++;return value;
+  });
+  let now=0;const storage=new FileSessionStorage(root);
+  const engine=new SessionEngine(camera,storage,{now:()=>now,sleep:async ms=>{now+=ms;}});
+  engine.start();await engine.settled();
+  expect(engine.snapshot().status).toBe('ERROR');
+  expect(engine.snapshot().captures.filter(c=>c.status==='saved')).toHaveLength(3);
+  expect(engine.snapshot().output).toBeUndefined();expect(captures).toBe(3);
+  expect(camera.canStartSession).toBe(false);
+  await expect(camera.waitUntilReady()).rejects.toThrow('disconnected');
+  expect(captures).toBe(3);
 });
 it('rejects foreign transfer paths and invalid JPEGs',async()=> {
   const {camera,bridge}=await setup();camera.confirmOneHardwareShutter();

@@ -1,5 +1,13 @@
 # Milestones
 
+## Fourth-photo SDK correction (completed and revalidated)
+
+- Confine EnumDevices to initial discovery; use connected-body DeviceReady in the capture/preview path. Await explicitly busy readiness responses without retrying capture.
+- Recover orphan remote preview through GetLiveViewStatus; preserve orderly native/backend shutdown and honest fault/preview state.
+- Native C++ regression, 50 backend tests, three browser tests and builds passed; real no-shutter test passed 80 readiness checks and three preview restarts.
+- New approved single JPEG report 2849c116-f40d-4d14-9ee0-03d6895eb0f1 passed; approved four-photo session c7a462b6-45fa-4fb7-8559-15271f31c61f reached COMPLETE with four verified 5568x3712 photos, full countdowns, JPG/PDF and large result display. SDK confirmed four shutter calls. Three prior failed-session originals preserved.
+- Physical iPad and printing remain pending. Historical results below refer to earlier binaries/reports.
+
 ## M2G current status — implemented; physical iPad acceptance pending
 - Actual Z30 Live View and the real four-photo workflow passed; Safari iPhone was confirmed by the operator, not a physical iPad.
 - Actual WebKit preview passed before/after four captures and after SDK restart. Hardware authorization and final hashes stayed valid; restart checks issued no shutters.
