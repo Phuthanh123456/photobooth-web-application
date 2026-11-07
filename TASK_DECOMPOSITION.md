@@ -1,5 +1,11 @@
 # Milestones
 
+## M2A — Frame template and composition
+- Inspected both supplied PDF pages: two color variants with eight exact vector slots each.
+- Original asset, 300dpi artwork and extracted point geometry retained; both columns map rows 1–4 to photos 1–4.
+- JPEG mock captures, full JPEG decode verification, progressive frame JPEG and vector-preserving PDF compositor.
+- Composition tests cover mapping, progressive rows, PDF print size, high-resolution JPEG and corrupt input.
+
 ## M0 — Architecture and setup
 - npm workspaces: React 19/Vite frontend, Node/TypeScript backend, shared contracts.
 - Camera interface and mock adapter; feasibility and operating rules.

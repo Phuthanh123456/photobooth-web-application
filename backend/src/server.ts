@@ -3,10 +3,18 @@ import { createServer } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { ServerEvent } from '@photobooth/shared';
 import type { SessionEngine } from './engine.js';
+import { templateDirectory } from './composition.js';
+import path from 'node:path';
 
 export function createPhotoboothServer(engine: SessionEngine, imageRoot: string) {
   const app = express();
   app.get('/health', (_req, res) => res.json({ ok: true, camera: 'mock' }));
+  app.use('/templates', express.static(templateDirectory, { index: false }));
+  app.get('/media/:sessionId/frame', (req, res) => {
+    if (req.params.sessionId !== engine.snapshot().sessionId) { res.sendStatus(404); return; }
+    res.setHeader('Cache-Control', 'no-store');
+    res.sendFile(path.join(imageRoot, req.params.sessionId, 'frame.jpg'));
+  });
   app.use('/images', express.static(imageRoot, { dotfiles: 'deny', index: false, setHeaders: res => res.setHeader('Cache-Control', 'no-store') }));
   const server = createServer(app);
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });

@@ -72,6 +72,7 @@ export class SessionEngine extends EventEmitter {
         if (!this.cancelled) await this.transition('SAVING');
         // Finish saving an already exposed image even after cancellation.
         Object.assign(record, await this.storage.save(this.state.sessionId!, photo, image), { status: 'saved' });
+        if (this.storage.progress) this.state.previewUrl = await this.storage.progress(this.snapshot());
         await this.storage.manifest(this.snapshot());
         if (this.cancelled) break;
         if (photo === PHOTO_COUNT) {

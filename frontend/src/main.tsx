@@ -40,7 +40,7 @@ function App() {
       <p className="operator-note">Laptop controls the session.<br/>The iPad is a display only.</p>
       <div role="alert">{(state?.error || error) && <p className="error">{state?.error || error}</p>}</div>
     </aside>}</div>
-    {!display && <section className="captures"><div className="section-heading"><h2>The four frames</h2><span>Verified images appear here</span></div><Slots state={state}/></section>}
+    {!display && <section className="captures"><div className="section-heading"><h2>The four frames</h2><span>Verified images appear here</span></div><Slots state={state}/><img style={{maxHeight:500, maxWidth:'100%',marginTop:16}} src={state?.previewUrl ?? '/templates/page-1.png'} alt="Progressive Frame CAP double strip"/></section>}
     {display && status === 'COMPLETE' && connected && <Slots state={state}/>}
     <footer><span>{display ? 'DISPLAY ONLY' : 'MOCK CAMERA TEST ENVIRONMENT'}</span><span className="session-id">{state?.sessionId ?? 'No session started'}</span></footer>
     <span className="sr-only" role="status">{connected ? `Session ${status}. Photo ${state?.photo ?? 0} of 4.` : 'Connection lost. Waiting for server.'}</span>

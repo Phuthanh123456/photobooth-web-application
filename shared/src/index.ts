@@ -21,6 +21,8 @@ export interface SessionState {
   captures: CaptureRecord[];
   error?: string;
   busy: boolean;
+  previewUrl?: string;
+  templatePage?: number;
 }
 export type ClientCommand = { type: 'START' | 'CANCEL' | 'RESET'; requestId: string };
 export type ServerEvent = { type: 'STATE'; state: SessionState } | { type: 'COMMAND_RESULT'; requestId: string; ok: boolean; error?: string };

@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 export interface CaptureRequest { sessionId: string; photo: number }
 export interface CameraImage { bytes: Uint8Array; extension: 'svg' | 'jpg' }
 /** Future Nikon bridge must resolve capture only after transfer completion.
@@ -19,7 +20,8 @@ export class MockCameraAdapter implements NikonCameraAdapter {
     this.capturing = true;
     try {
       await new Promise(resolve => setTimeout(resolve, 180));
-      return { extension: 'svg', bytes: new TextEncoder().encode(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#153a40"/><circle cx="600" cy="320" r="180" fill="#28646a"/><text x="600" y="570" text-anchor="middle" fill="#e2eece" font-family="sans-serif" font-size="64">MOCK PHOTO ${photo} / 4</text></svg>`) };
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200"><rect width="1800" height="1200" fill="${['#295d71','#714665','#3f7159','#826138'][photo-1]}"/><circle cx="900" cy="490" r="260" fill="#ffffff22"/><text x="900" y="820" text-anchor="middle" fill="white" font-family="sans-serif" font-size="100">MOCK PHOTO ${photo} / 4</text><text x="900" y="930" text-anchor="middle" fill="white" font-family="sans-serif" font-size="38">TEST IMAGE — NOT A NIKON CAPTURE</text></svg>`;
+      return { extension: 'jpg', bytes: await sharp(Buffer.from(svg)).jpeg({ quality: 95 }).toBuffer() };
     } finally { this.capturing = false; }
   }
 }

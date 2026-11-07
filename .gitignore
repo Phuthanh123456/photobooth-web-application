@@ -5,3 +5,11 @@ playwright-report/
 test-results/
 *.log
 .env
+.local/
+storage/
+native/build/
+*.dll
+*.exe
+*.obj
+*.pdb
+*.lib

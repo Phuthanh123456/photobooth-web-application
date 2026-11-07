@@ -6,6 +6,7 @@ import { FileSessionStorage } from '../src/storage.js';
 import { SessionEngine } from '../src/engine.js';
 import { MockCameraAdapter } from '../src/camera.js';
 import type { CaptureRecord } from '@photobooth/shared';
+import sharp from 'sharp';
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 it('writes isolated images and a four-record manifest, then detects corruption', async () => {
@@ -15,13 +16,14 @@ it('writes isolated images and a four-record manifest, then detects corruption',
   engine.start(); engine.cancel(); await engine.settled();
   const state = engine.snapshot(); const id = state.sessionId!;
   const records: CaptureRecord[] = [];
-  for (let photo = 1; photo <= 4; photo++) records.push({ photo, status: 'saved', ...await storage.save(id, photo, { bytes: new TextEncoder().encode(`<svg>mock ${photo}</svg>`), extension: 'svg' }) });
+  const jpeg = await sharp({ create: { width: 64, height: 64, channels: 3, background: 'red' } }).jpeg().toBuffer();
+  for (let photo = 1; photo <= 4; photo++) records.push({ photo, status: 'saved', ...await storage.save(id, photo, { bytes: jpeg, extension: 'jpg' }) });
   await storage.verify(id, records);
   await storage.manifest({ ...state, captures: records });
   const manifest = JSON.parse(await readFile(path.join(root, id, 'manifest.json'), 'utf8'));
   expect(manifest.captures).toHaveLength(4);
   expect(manifest.sessionId).toBe(id);
-  await writeFile(path.join(root, id, '2.svg'), 'corrupted');
+  await writeFile(path.join(root, id, '2.jpg'), 'corrupted');
   await expect(storage.verify(id, records)).rejects.toThrow('verification');
   await expect(storage.verify(id, records.slice(0,3))).rejects.toThrow();
   await expect(storage.save(id, 1, { bytes: new Uint8Array(), extension: 'svg' })).rejects.toThrow('Empty');
