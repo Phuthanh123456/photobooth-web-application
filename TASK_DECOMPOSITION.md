@@ -12,6 +12,14 @@
 - Prominent mock warning; responsive layout, reduced-motion flash and safe-area handling.
 - Real-time browser test passed at 1366×768 (no vertical overflow), iPad viewport and narrow mobile viewport. Test services use isolated ports 5175/3003 and storage.
 
+## M2C — Reset, retake and final output
+- Storage root is configurable; internal JPEGs are kept under temp/session-UUID, final deliverables under output.
+- COMPLETE requires four verified originals plus verified 300dpi JPG, original-sized PDF and final manifest.
+- Reset waits for an in-flight shutter/transfer, removes current temporary data/drafts, and blocks late callbacks. Confirmed retake deletes only current completed outputs; prior completed outputs are preserved.
+- Restarted in-progress manifests become ERROR and never resume automatically.
+- Operator capability cookie is issued only through a loopback-only Vite bootstrap. Originals/manifests/downloads require it; display snapshots redact internal paths and technical errors. No public temp-directory static serving.
+- Validation: 29 backend tests and real-time browser workflow passed, including actual image loading/downloads and original M0/M1 invariants.
+
 ## M0 — Architecture and setup
 - npm workspaces: React 19/Vite frontend, Node/TypeScript backend, shared contracts.
 - Camera interface and mock adapter; feasibility and operating rules.

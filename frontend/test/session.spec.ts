@@ -24,11 +24,14 @@ test('operator and iPad display complete a real-time four-photo session', async 
   await expect(page.locator('.status-row h2')).toHaveText('COMPLETE', { timeout: 55_000 });
   expect(Date.now() - started).toBeGreaterThan(37_000);
   await expect(page.getByRole('img', { name: /Saved mock photo/ })).toHaveCount(4);
+  await expect.poll(() => page.getByRole('img', { name: /Saved mock photo/ }).evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   await expect(display.getByText('All four photos are safely saved.')).toBeVisible();
   await expect(display.getByRole('img', { name: 'Completed double photo strip' })).toBeVisible();
   const manifest = await page.request.get(`/images/${await page.locator('.session-id').innerText()}/manifest.json`);
   expect(manifest.ok()).toBe(true);
   expect(await manifest.json()).toMatchObject({ status: 'COMPLETE', captures: [ { status:'saved' }, { status:'saved' }, { status:'saved' }, { status:'saved' } ] });
+  const output = await page.request.get(await page.getByRole('link', {name:'Download JPG'}).getAttribute('href') ?? '');
+  expect(output.ok()).toBe(true); expect((await output.body()).subarray(0,2)).toEqual(Buffer.from([255,216]));
   await page.getByRole('button', { name: 'Start Session' }).click();
   await expect(display.locator('.countdown')).toBeVisible();
   await page.getByRole('button', { name: 'Cancel Session' }).click();

@@ -13,7 +13,7 @@ import { createPhotoboothServer } from '../src/server.js';
 let root: string; let engine: SessionEngine; let host: ReturnType<typeof createPhotoboothServer>; let url: string;
 const clients: WebSocket[] = [];
 function connect(role: string) {
-  const ws = new WebSocket(`${url}?role=${role}`, { origin: 'http://localhost:5173' }); clients.push(ws);
+  const ws = new WebSocket(`${url}?role=${role}`, { origin: 'http://localhost:5173', headers: { Cookie: `photobooth_operator=${host.operatorToken}` } }); clients.push(ws);
   return ws;
 }
 function event(ws: WebSocket, matches: (e: ServerEvent) => boolean): Promise<ServerEvent> {
@@ -59,4 +59,15 @@ it('rejects controls on a display socket and rejects a remote operator origin', 
   display.send(JSON.stringify({type:'START',requestId:'forbidden'})); expect(await denied).toMatchObject({ok:false}); expect(engine.snapshot().status).toBe('IDLE');
   const remote = new WebSocket(`${url}?role=operator`,{origin:'http://192.168.1.20:5173'}); clients.push(remote);
   const failure = once(remote,'error'); await expect(failure).resolves.toMatchObject([{message:expect.stringContaining('403')}]);
+});
+it('requires an operator capability even with a forged localhost Origin and protects originals', async () => {
+  const untrusted = new WebSocket(`${url}?role=operator`,{origin:'http://localhost:5173'}); clients.push(untrusted);
+  await expect(once(untrusted,'error')).resolves.toMatchObject([{message:expect.stringContaining('403')}]);
+  const response = await fetch(url.replace('ws://','http://').replace('/ws','/media/anything/photo/1'));
+  expect(response.status).toBe(403);
+});
+it('redacts technical errors and storage paths from display snapshots', async () => {
+  const display = connect('display'); const snapshot=await event(display,e=>e.type==='STATE');
+  if(snapshot.type !== 'STATE') throw new Error('Expected snapshot');
+  expect(snapshot.state.outputFolder).toBeUndefined(); expect(snapshot.state.output).toBeUndefined();
 });

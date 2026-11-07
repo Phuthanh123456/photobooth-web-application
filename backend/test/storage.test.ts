@@ -20,10 +20,10 @@ it('writes isolated images and a four-record manifest, then detects corruption',
   for (let photo = 1; photo <= 4; photo++) records.push({ photo, status: 'saved', ...await storage.save(id, photo, { bytes: jpeg, extension: 'jpg' }) });
   await storage.verify(id, records);
   await storage.manifest({ ...state, captures: records });
-  const manifest = JSON.parse(await readFile(path.join(root, id, 'manifest.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(storage.sessionDirectory(id), 'manifest.json'), 'utf8'));
   expect(manifest.captures).toHaveLength(4);
   expect(manifest.sessionId).toBe(id);
-  await writeFile(path.join(root, id, '2.jpg'), 'corrupted');
+  await writeFile(path.join(storage.sessionDirectory(id), 'capture-02.jpg'), 'corrupted');
   await expect(storage.verify(id, records)).rejects.toThrow('verification');
   await expect(storage.verify(id, records.slice(0,3))).rejects.toThrow();
   await expect(storage.save(id, 1, { bytes: new Uint8Array(), extension: 'svg' })).rejects.toThrow('Empty');
@@ -37,6 +37,6 @@ it('persists a complete session with four verifiable mock images', async () => {
   const state = engine.snapshot();
   expect(state.status).toBe('COMPLETE');
   await storage.verify(state.sessionId!, state.captures);
-  const manifest = JSON.parse(await readFile(path.join(root,state.sessionId!, 'manifest.json'), 'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(storage.sessionDirectory(state.sessionId!), 'manifest.json'), 'utf8'));
   expect(manifest.status).toBe('COMPLETE'); expect(manifest.captures).toHaveLength(4);
 });

@@ -11,7 +11,12 @@ export function useSession(operator: boolean) {
     let disposed = false;
     let reconnect: ReturnType<typeof setTimeout>;
     let lastMessage = performance.now();
-    const connect = () => {
+    const connect = async () => {
+      if (operator) {
+        try { const response = await fetch('/operator-api/bootstrap'); if (!response.ok) throw new Error('Open the operator screen on the laptop using localhost.'); }
+        catch (e) { if (!disposed) { setConnected(false); setError(String(e)); reconnect = setTimeout(connect, 2000); } return; }
+      }
+      if (disposed) return;
       const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?role=${operator ? 'operator' : 'display'}`);
       socket.current = ws;
       ws.onmessage = event => {

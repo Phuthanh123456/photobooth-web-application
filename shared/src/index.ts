@@ -9,6 +9,8 @@ export interface CaptureRecord {
   file?: string;
   bytes?: number;
   sha256?: string;
+  width?: number;
+  height?: number;
 }
 export interface SessionState {
   sessionId: string | null;

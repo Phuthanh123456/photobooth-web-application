@@ -5,28 +5,52 @@ import type { ServerEvent } from '@photobooth/shared';
 import type { SessionEngine } from './engine.js';
 import { templateDirectory } from './composition.js';
 import path from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { FileSessionStorage, validSessionId } from './storage.js';
 
-export function createPhotoboothServer(engine: SessionEngine, imageRoot: string) {
+export function createPhotoboothServer(engine: SessionEngine, imageRoot: string, storage = new FileSessionStorage(imageRoot)) {
   const app = express();
+  const operatorToken = randomBytes(32).toString('hex');
+  const authorized = (cookie?: string) => cookie?.split(';').some(part => part.trim() === `photobooth_operator=${operatorToken}`) ?? false;
+  const operators = new WeakSet<WebSocket>();
+  app.get('/internal/operator-token', (_req, res) => res.setHeader('Cache-Control','no-store').json({ token:operatorToken }));
   app.get('/health', (_req, res) => res.json({ ok: true, camera: 'mock' }));
   app.use('/templates', express.static(templateDirectory, { index: false }));
   app.get('/media/:sessionId/frame', (req, res) => {
     if (req.params.sessionId !== engine.snapshot().sessionId) { res.sendStatus(404); return; }
     res.setHeader('Cache-Control', 'no-store');
-    res.sendFile(path.join(imageRoot, req.params.sessionId, 'frame.jpg'));
+    const state = engine.snapshot();
+    res.sendFile(state.output && state.status === 'COMPLETE' ? storage.outputFile(req.params.sessionId,'jpg') : path.join(storage.sessionDirectory(req.params.sessionId), 'frame.jpg'), {dotfiles:'allow'});
   });
   app.get('/media/:sessionId/photo/:photo', (req, res) => {
+    if (!authorized(req.headers.cookie)) { res.sendStatus(403); return; }
     if (req.params.sessionId !== engine.snapshot().sessionId || !/^[1-4]$/.test(req.params.photo)) { res.sendStatus(404); return; }
     res.setHeader('Cache-Control', 'no-store');
-    res.sendFile(path.join(imageRoot, req.params.sessionId, `${req.params.photo}.jpg`));
+    const record = engine.snapshot().captures[Number(req.params.photo)-1];
+    if (record?.status !== 'saved' || !record.file) { res.sendStatus(404); return; }
+    res.sendFile(path.join(storage.sessionDirectory(req.params.sessionId), record.file), {dotfiles:'allow'});
   });
-  app.use('/images', express.static(imageRoot, { dotfiles: 'deny', index: false, setHeaders: res => res.setHeader('Cache-Control', 'no-store') }));
+  app.get('/images/:sessionId/manifest.json', (req,res) => {
+    if (!authorized(req.headers.cookie)) { res.sendStatus(403); return; }
+    if (req.params.sessionId !== engine.snapshot().sessionId) { res.sendStatus(404); return; }
+    res.setHeader('Cache-Control','no-store'); res.sendFile(path.join(storage.sessionDirectory(req.params.sessionId),'manifest.json'), {dotfiles:'allow'});
+  });
+  app.get('/media/:sessionId/output/:kind', (req,res) => {
+    if (!authorized(req.headers.cookie)) { res.sendStatus(403); return; }
+    if (!validSessionId(req.params.sessionId) || !['jpg','pdf','manifest'].includes(req.params.kind)) { res.sendStatus(404); return; }
+    const file = storage.outputFile(req.params.sessionId,req.params.kind as 'jpg'|'pdf'|'manifest');
+    res.setHeader('Cache-Control','no-store'); res.download(file, path.basename(file), {dotfiles:'allow'});
+  });
   const server = createServer(app);
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
   const seenCommands = new Set<string>();
   const send = (ws: WebSocket, event: ServerEvent) => {
     if (ws.readyState === WebSocket.OPEN) {
       if (ws.bufferedAmount > 1024 * 1024) { ws.terminate(); return; }
+      if (event.type === 'STATE' && !operators.has(ws)) {
+        event = { ...event, state: { ...event.state, error:event.state.error ? 'Please wait for assistance' : undefined, outputFolder:undefined, output:undefined,
+          captures:event.state.captures.map(c => ({ photo:c.photo, status:c.status })), cameraStatus:undefined } };
+      }
       ws.send(JSON.stringify(event));
     }
   };
@@ -36,8 +60,9 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string)
     const operator = url.searchParams.get('role') === 'operator';
     let localOrigin = false;
     try { localOrigin = ['localhost', '127.0.0.1', '[::1]'].includes(new URL(req.headers.origin ?? '').hostname); } catch { /* deny controls */ }
-    if (operator && !localOrigin) { socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n'); socket.destroy(); return; }
+    if (operator && (!localOrigin || !authorized(req.headers.cookie))) { socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n'); socket.destroy(); return; }
     wss.handleUpgrade(req, socket, head, ws => {
+      if (operator) operators.add(ws);
       ws.on('error', () => {});
       send(ws, { type: 'STATE', state: engine.snapshot() });
       ws.on('message', raw => {
@@ -53,7 +78,7 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string)
           switch (command.type) {
             case 'START': engine.start(); break;
             case 'CANCEL': engine.cancel(); break;
-            case 'RESET': engine.reset(); break;
+            case 'RESET': void engine.requestReset('confirmDeleteCompleted' in command && command.confirmDeleteCompleted === true); break;
             default: throw new Error('Unknown command');
           }
           send(ws, { type: 'COMMAND_RESULT', requestId, ok: true });
@@ -66,5 +91,5 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string)
   // Heartbeats also detect a silent network loss in the browser; they never advance the engine.
   const heartbeat = setInterval(broadcast, 1000);
   server.on('close', () => { clearInterval(heartbeat); engine.off('state', broadcast); wss.close(); });
-  return { server, wss };
+  return { server, wss, operatorToken };
 }

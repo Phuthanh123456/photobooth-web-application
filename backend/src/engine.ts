@@ -13,17 +13,19 @@ export class SessionEngine extends EventEmitter {
   private state = initial();
   private cancelled = false;
   private task: Promise<void> = Promise.resolve();
+  private resetting = false;
   constructor(private camera: NikonCameraAdapter, private storage: SessionStorage, private clock: Clock = monotonicClock) { super(); }
   snapshot(): SessionState {
-    return structuredClone({ ...this.state, serverNowMs: this.clock.now(), remainingSeconds: this.state.status === 'COUNTDOWN' && this.state.countdownDeadlineMs !== null ? Math.max(0, Math.ceil((this.state.countdownDeadlineMs - this.clock.now()) / 1000)) : 0 });
+    return structuredClone({ ...this.state, camera: this.camera.kind, templatePage: this.storage.templatePage ?? 1, outputFolder: this.storage.outputFolder, serverNowMs: this.clock.now(), remainingSeconds: this.state.status === 'COUNTDOWN' && this.state.countdownDeadlineMs !== null ? Math.max(0, Math.ceil((this.state.countdownDeadlineMs - this.clock.now()) / 1000)) : 0 });
   }
   private publish() { this.emit('state', this.snapshot()); }
   start(): void {
-    if (this.state.busy || !['IDLE', 'COMPLETE'].includes(this.state.status)) throw new Error('Session cannot start; cancel or acknowledge the current session first');
+    if (this.resetting || this.state.busy || !['IDLE', 'COMPLETE'].includes(this.state.status)) throw new Error('Session cannot start; cancel or acknowledge the current session first');
+    const previousId = this.state.status === 'COMPLETE' ? this.state.sessionId : null;
     this.cancelled = false;
     this.state = { ...initial(), busy: true, sessionId: randomUUID(), captures: Array.from({ length: PHOTO_COUNT }, (_, i) => ({ photo: i + 1, status: 'pending' })) };
     this.publish();
-    this.task = this.run();
+    this.task = this.run(previousId);
   }
   cancel(): void {
     if (!this.state.busy || this.cancelled || this.state.status === 'ERROR') throw new Error('No active session to cancel');
@@ -37,6 +39,29 @@ export class SessionEngine extends EventEmitter {
     this.state = initial();
     this.publish();
   }
+  restoreInterrupted(state: SessionState) {
+    if (this.state.busy || state.status !== 'ERROR') throw new Error('Invalid restart recovery state');
+    this.state = { ...state, busy:false, status:'ERROR', countdownDeadlineMs:null };
+  }
+  requestReset(confirmDeleteCompleted = false): Promise<void> {
+    if (this.resetting) throw new Error('Reset already in progress');
+    const completed = this.state.status === 'COMPLETE';
+    if (completed && !confirmDeleteCompleted) throw new Error('Confirm deletion before retaking this completed session');
+    const id = this.state.sessionId, active = this.task;
+    this.resetting = true;
+    this.cancelled = true;
+    this.state.status = 'RESETTING'; this.state.busy = true; this.state.countdownDeadlineMs = null; this.publish();
+    this.task = (async () => {
+      try {
+        await active;
+        this.state.status = 'RESETTING'; this.state.busy = true; this.publish();
+        if (id) await this.storage.cleanup?.(id, completed && confirmDeleteCompleted);
+        this.state = initial();
+      } catch (error) { this.state.status = 'ERROR'; this.state.busy = false; this.state.error = `Reset failed: ${String(error)}. Inspect storage before trying again.`; }
+      finally { this.resetting = false; this.publish(); }
+    })();
+    return this.task;
+  }
   settled() { return this.task; }
   private async transition(status: Status) {
     this.state.status = status;
@@ -45,8 +70,9 @@ export class SessionEngine extends EventEmitter {
     await this.storage.manifest(this.snapshot());
     if (!this.cancelled) this.publish();
   }
-  private async run() {
+  private async run(previousId: string | null = null) {
     try {
+      if (previousId) await this.storage.cleanup?.(previousId, false);
       await this.storage.manifest(this.snapshot());
       for (let photo = 1; photo <= PHOTO_COUNT; photo++) {
         if (this.cancelled) break;
@@ -79,6 +105,12 @@ export class SessionEngine extends EventEmitter {
           await this.camera.waitUntilReady();
           await this.storage.verify(this.state.sessionId!, this.state.captures);
           if (this.cancelled) break;
+          if (this.storage.finalize) {
+            await this.transition('COMPOSING');
+            if (this.cancelled) break;
+            this.state.output = await this.storage.finalize(this.snapshot());
+            if (this.cancelled) break;
+          }
           await this.transition('COMPLETE');
         }
       }
