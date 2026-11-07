@@ -16,6 +16,8 @@ test('operator and iPad display complete a real-time four-photo session', async 
   await page.screenshot({ path: testInfo.outputPath('operator-idle.png'), fullPage: true });
   await page.getByRole('button', { name: 'Start Session' }).click();
   await expect(display.locator('.countdown')).toHaveText('10');
+  await expect(display.locator('.customer-preview')).toBeVisible();
+  await expect(display.locator('.completed-display')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Start Session' })).toBeDisabled();
   await display.screenshot({ path: testInfo.outputPath('display-countdown.png'), fullPage: true });
   await display.reload();
@@ -25,8 +27,13 @@ test('operator and iPad display complete a real-time four-photo session', async 
   expect(Date.now() - started).toBeGreaterThan(37_000);
   await expect(page.getByRole('img', { name: /Saved mock photo/ })).toHaveCount(4);
   await expect.poll(() => page.getByRole('img', { name: /Saved mock photo/ }).evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
-  await expect(display.getByText('All four photos are safely saved.')).toBeVisible();
-  await expect(display.getByRole('img', { name: 'Completed double photo strip' })).toBeVisible();
+  await expect(display.getByText('All four photos, together in your frame.')).toBeVisible();
+  await expect(display.locator('.completed-display')).toBeVisible();
+  await expect(display.locator('.customer-preview, .live-view, .customer-result')).toHaveCount(0);
+  const finalStrip = display.getByRole('img', { name: 'Your four completed photos in the Frame CAP' });
+  await expect(finalStrip).toBeVisible();
+  await expect.poll(() => finalStrip.evaluate(image => (image as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  expect(await finalStrip.evaluate(image => (image as HTMLImageElement).naturalHeight)).toBeGreaterThan(1000);
   const manifest = await page.request.get(`/images/${await page.locator('.session-id').innerText()}/manifest.json`);
   expect(manifest.ok()).toBe(true);
   expect(await manifest.json()).toMatchObject({ status: 'COMPLETE', captures: [ { status:'saved' }, { status:'saved' }, { status:'saved' }, { status:'saved' } ] });

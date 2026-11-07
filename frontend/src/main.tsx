@@ -10,17 +10,20 @@ function App() {
   const mock = state?.camera !== 'nikon';
   const message = !connected ? 'Reconnecting…' : status === 'COMPLETE' ? 'Your photos are ready!' : status === 'COUNTDOWN' ? `Photo ${state?.photo} of 4` : status === 'CAPTURING' ? 'Smile!' : status === 'SAVING' || status === 'COMPOSING' ? 'Saving your photo…' : status === 'ERROR' ? 'Please wait for assistance' : status === 'CANCELLED' ? 'Session cancelled' : 'Get Ready';
   const frame = state?.previewUrl ?? `/templates/page-${state?.templatePage ?? 1}.png`;
-  if (display) return <main className="display">
+  if (display) return <main className={`display${status === 'COMPLETE' ? ' is-complete' : ''}`}>
     <header><span className="wordmark">CAP <small>PHOTOBOOTH</small></span><span className="badge">{mock ? 'MOCK · TEST PREVIEW' : 'NIKON Z30'}</span><span className="connection">{connected ? 'Connected' : 'Reconnecting'}</span></header>
-    <section className="customer-preview" aria-label={mock ? 'Mock camera preview' : 'Nikon Live View'}>
+    {status === 'COMPLETE' ? <section className="completed-display" aria-label="Completed photo strip">
+      <div className="completed-heading"><p className="eyebrow">MAKE A MEMORY</p><h1>Your photos are ready!</h1><p>All four photos, together in your frame.</p></div>
+      <div className="completed-artwork-wrap">{state?.sessionId && <img className="completed-artwork" src={`/media/${state.sessionId}/frame`} alt="Your four completed photos in the Frame CAP"/>}</div>
+    </section> : <section className="customer-preview" aria-label={mock ? 'Mock camera preview' : 'Nikon Live View'}>
       {state?.liveViewUrl && connected ? <img className="live-view" src={state.liveViewUrl} alt="Nikon Live View"/> : <div className="preview-placeholder" aria-hidden="true"><div className="lens"/></div>}
       <div className={`guidance${state?.liveViewUrl ? ' over-live' : ''}`}><p className="eyebrow">{status === 'COUNTDOWN' ? 'LOOK AT THE CAMERA' : 'MAKE A MEMORY'}</p>
         {connected && status === 'COUNTDOWN' && <div className="countdown">{state?.remainingSeconds}</div>}
-        <h1>{message}</h1><p>{status === 'COMPLETE' ? 'All four photos are safely saved.' : mock ? 'Mock mode · no real camera image' : status === 'ERROR' ? 'Your operator will help you.' : 'Your operator will guide the session.'}</p>
+        <h1>{message}</h1><p>{mock ? 'Mock mode · no real camera image' : status === 'ERROR' ? 'Your operator will help you.' : 'Your operator will guide the session.'}</p>
       </div>
       {connected && status === 'CAPTURING' && <div className="flash" key={`${state?.sessionId}-${state?.photo}`} aria-hidden="true"/>}
-    </section><footer><span>UNIVERSITY MEDIA TEAM</span><span>{connected && state?.photo ? `Photo ${state.photo} of 4` : 'FOUR FRAMES. ONE MEMORY.'}</span></footer>
-    {status === 'COMPLETE' && connected && <div className="customer-result"><img src={frame} alt="Completed double photo strip"/></div>}
+    </section>}
+    <footer><span>UNIVERSITY MEDIA TEAM</span><span>{connected && state?.photo ? `Photo ${state.photo} of 4` : 'FOUR FRAMES. ONE MEMORY.'}</span></footer>
   </main>;
   return <main className="operator">
     <header><div className="wordmark">CAP <small>MEDIA TEAM / PHOTOBOOTH</small></div><div className="header-right"><span className="connection">{connected ? 'Connected' : 'Reconnecting'}</span><a href="/display" target="_blank" rel="noreferrer">Open iPad display ↗</a></div></header>
