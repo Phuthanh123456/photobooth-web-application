@@ -1,4 +1,26 @@
 import { test, expect } from '@playwright/test';
+import sharp from 'sharp';
+
+test('Live View updates, hides a lost stream, and reconnects without replaying controls',async({page})=> {
+  let available=true,frozen=false,sequence=0,commands=0;
+  const jpeg=await sharp({create:{width:64,height:32,channels:3,background:'blue'}}).jpeg().toBuffer();
+  await page.routeWebSocket('**/ws?role=display',socket=> {
+    const send=()=>socket.send(JSON.stringify({type:'STATE',state:{status:'IDLE',camera:'nikon',photo:0,captures:[],busy:false,liveViewUrl:'/live-view.mjpg'}}));
+    send();const heartbeat=setInterval(send,500);socket.onClose(()=>clearInterval(heartbeat));
+    socket.onMessage(()=>commands++);
+  });
+  await page.route('**/live-view.jpg',route=>route.fulfill(available ? {status:200,contentType:'image/jpeg',headers:{'X-Frame-Id':String(frozen ? sequence : ++sequence)},body:jpeg} : {status:503}));
+  await page.goto('/display');
+  const image=page.getByRole('img',{name:'Nikon Live View'});
+  await expect(image).toBeVisible();const first=await image.getAttribute('src');
+  await expect.poll(()=>image.getAttribute('src')).not.toBe(first);
+  available=false;await expect(image).toHaveCount(0);
+  await expect(page.getByText('Live View reconnecting…',{exact:true})).toBeVisible();
+  available=true;await expect(image).toBeVisible();
+  frozen=true;await expect(image).toHaveCount(0,{timeout:6000});
+  frozen=false;await expect(image).toBeVisible();
+  expect(commands).toBe(0);await expect(page.getByRole('button')).toHaveCount(0);
+});
 
 test('WebKit iPad display receives server countdown and active reset without operator controls',async({browser,page})=> {
   const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));

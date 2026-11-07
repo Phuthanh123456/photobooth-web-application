@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { useSession } from './useSession';
+import { LiveView } from './LiveView';
 import './styles.css';
 
 function App() {
@@ -16,7 +17,7 @@ function App() {
       <div className="completed-heading"><p className="eyebrow">MAKE A MEMORY</p><h1>Your photos are ready!</h1><p>All four photos, together in your frame.</p></div>
       <div className="completed-artwork-wrap">{state?.sessionId && <img className="completed-artwork" src={`/media/${state.sessionId}/frame`} alt="Your four completed photos in the Frame CAP"/>}</div>
     </section> : <section className="customer-preview" aria-label={mock ? 'Mock camera preview' : 'Nikon Live View'}>
-      {state?.liveViewUrl && connected ? <img className="live-view" src={state.liveViewUrl} alt="Nikon Live View"/> : <div className="preview-placeholder" aria-hidden="true"><div className="lens"/></div>}
+      {!mock && connected ? <LiveView url="/live-view.mjpg"/> : <div className="preview-placeholder" aria-hidden="true"><div className="lens"/></div>}
       <div className={`guidance${state?.liveViewUrl ? ' over-live' : ''}`}><p className="eyebrow">{status === 'COUNTDOWN' ? 'LOOK AT THE CAMERA' : 'MAKE A MEMORY'}</p>
         {connected && status === 'COUNTDOWN' && <div className="countdown">{state?.remainingSeconds}</div>}
         <h1>{message}</h1><p>{mock ? 'Mock mode · no real camera image' : status === 'ERROR' ? 'Your operator will help you.' : 'Your operator will guide the session.'}</p>

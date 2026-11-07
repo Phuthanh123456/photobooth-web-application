@@ -1,5 +1,13 @@
 # Implementation report — 2026-11-07
 
+## Live View recovery follow-up
+
+The display now reads fresh JPEG snapshots with server frame IDs, bounded sequential requests and automatic reconnection. It removes stale images instead of leaving the final MJPEG frame frozen on screen. Tests cover HTTP failure/recovery and a stream that stops advancing its frame ID. Preview transport cannot send capture commands. The old MJPEG endpoint remains for compatibility.
+
+During this fix the SDK reported `StartLiveView failed (-109)`; the local Nikon log explicitly recorded `Already in live view state`. After the operator power-cycled the Z30 and the backend reconnected, 15 HTTP snapshot requests returned 15 distinct frame IDs and 15 distinct JPEG hashes. Camera readiness was true. This check sent zero shutters. Native bridge/SDK/validated capture code was unchanged.
+
+Validation: 48 backend tests passed; the three Chromium/WebKit E2E tests passed. After adding repeated-frame staleness coverage, both WebKit tests passed again. Builds passed. A separate WebKit visit to the real `/display` rendered 640x424 camera images with eight successive image sources and zero controls or shutter commands. The Vite proxy includes the new snapshot endpoint.
+
 ## Final M2G evidence update
 
 **IMPLEMENTED / TESTED WITH REAL Z30:** single-photo capture, exactly one separately approved four-photo session, verified JPG/PDF/manifest, real Live View before/after capture, SDK/backend restart/reconnection and completed-output preservation. **TESTED WITH SAFARI IPHONE:** operator-confirmed real feed. **NOT TESTED:** physical iPad (not available), disruptive USB/power, actual printing and destructive retake of the completed real output.

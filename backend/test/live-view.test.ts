@@ -23,6 +23,19 @@ it('does not fabricate a preview when the SDK has no frame or its latest frame i
   expect((await fetch(url)).status).toBe(503);
   camera.latestFrame={bytes:Buffer.from([255,216,255,217]),at:performance.now()-4000};expect((await fetch(url)).status).toBe(503);
 });
+it('serves fresh standalone frames, rejects stale frames, and recovers on the next new frame',async()=> {
+  const snapshot=url.replace('.mjpg','.jpg');
+  expect((await fetch(snapshot)).status).toBe(503);
+  const jpeg=await sharp({create:{width:64,height:32,channels:3,background:'red'}}).jpeg().toBuffer();
+  const firstAt=performance.now();camera.latestFrame={bytes:jpeg,at:firstAt};
+  const first=await fetch(snapshot);expect(first.headers.get('x-frame-id')).toBe(String(firstAt));
+  expect(first.headers.get('cache-control')).toBe('no-store');
+  expect(Buffer.from(await first.arrayBuffer())).toEqual(jpeg);
+  camera.latestFrame.at=performance.now()-4000;
+  expect((await fetch(snapshot)).status).toBe(503);
+  camera.latestFrame={bytes:jpeg,at:performance.now()};
+  expect((await fetch(snapshot)).status).toBe(200);
+});
 it('streams actual supplied JPEG bytes and ends cleanly after camera disconnection',async()=> {
   const jpeg=await sharp({create:{width:64,height:32,channels:3,background:'blue'}}).jpeg().toBuffer();
   camera.latestFrame={bytes:Buffer.concat([jpeg,Buffer.alloc(8192)]),at:performance.now()};const response=await fetch(url);

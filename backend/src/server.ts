@@ -18,6 +18,15 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string,
   app.get('/internal/operator-token', (_req, res) => res.setHeader('Cache-Control','no-store').json({ token:operatorToken }));
   app.get('/health', (_req, res) => res.json({ ok: true, camera: engine.snapshot().camera, mode:engine.snapshot().cameraMode, ready:engine.snapshot().canStartSession }));
   let streams=0;
+  app.get('/live-view.jpg', (_req,res) => {
+    res.setHeader('Cache-Control','no-store');
+    const frame=camera?.latestFrame;
+    if(camera?.kind!=='nikon' || !frame || performance.now()-frame.at>3000) {res.sendStatus(503);return;}
+    const jpeg=previewJpeg(frame.bytes);
+    if(!jpeg) {res.sendStatus(503);return;}
+    res.setHeader('X-Frame-Id',String(frame.at));
+    res.type('jpeg').send(jpeg);
+  });
   app.get('/live-view.mjpg',(req,res)=> {
     if(camera?.kind!=='nikon' || !camera.latestFrame || performance.now()-camera.latestFrame.at>3000) {res.sendStatus(503);return;}
     if(streams>=4) {res.sendStatus(429);return;}
