@@ -47,7 +47,8 @@
 
 ## M2F — Real four-photo integration (acceptance BLOCKED)
 - Real adapter is wired to the existing session engine and tested through a mock SDK boundary, including full deadlines and final output verification.
-- REAL_NIKON four-photo sessions remain locked without passed single-photo validation. Four physical captures/reset acceptance have not run. This milestone is not marked complete.
+- Following separate explicit four-photo authorization, one START produced exactly four verified 5568?3712 originals and COMPLETE session 81c215e9-9632-4d26-b426-81a27e73e7cf. Every shutter was after the full countdown deadline (7.49?12.93ms late).
+- Actual JPG/PDF/manifest downloads and PDF rendering verified. Live reset-authorization/original-image protection checked; current completed outputs retained. Destructive real retake not executed; busy-reset safety is covered by mock SDK tests.
 
 ## M2G — Live View and final validation (acceptance BLOCKED)
 - Independent SDK callback lifecycle, bounded latest-frame IPC, ~8fps MJPEG streaming, aspect-preserving iPad preview and stale/disconnect handling implemented/tested with injected frames.

@@ -52,7 +52,9 @@ The extracted ReadMe does not establish a redistribution grant; headers/sample s
 
 **CURRENT M2E ? TESTED WITH REAL NIKON Z30:** confirmed capture and transfer of a verified 5568?3712 JPEG (7,224,414 bytes). Report `storage/hardware-test/040344af-4f6e-4424-9db4-297a0864d194/result.json` passed after safe SDK shutdown. SDK ImageSaved latency 743ms; CaptureComplete callback 755ms. ImageSaved precedes that callback, so a separate transfer duration remains null. Actual Live View streamed at 640?424 and rendered in WebKit.
 
-**NOT TESTED / BLOCKED:** four-photo hardware acceptance, USB removal during exposure, physical iPad Safari and print acceptance. Physical shutters require explicit operator confirmation. REAL_NIKON four-photo sessions remain disabled without a PASSED single-photo report matching current device-reported version, SDK/profile/native and Node bridge hashes and verified original JPEG.
+**CURRENT M2F ? TESTED WITH REAL NIKON Z30:** exactly four verified 5568?3712 images captured after separate full countdowns; session 81c215e9-9632-4d26-b426-81a27e73e7cf reached COMPLETE and produced verified JPG/PDF/manifest. No shutter preceded its deadline. Unconfirmed destructive RESET was rejected and outputs preserved.
+
+**NOT TESTED / BLOCKED:** USB removal during exposure, physical iPad device identity/complete Safari acceptance and actual print acceptance. Physical shutters require explicit operator confirmation. REAL_NIKON four-photo sessions remain disabled without a PASSED single-photo report matching current device-reported version, SDK/profile/native and Node bridge hashes and verified original JPEG.
 
 Do not run NX Tether, Camera Control Pro or Nikon Transfer simultaneously. For the hardware test, stop a real-mode backend, close those clients, connect/power the Z30 and run `npm run camera:test` in an interactive terminal. The exact prompt grants one shutter only. Changing any SDK/bridge/profile/device fingerprint requires validation again.
 
