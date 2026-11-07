@@ -35,11 +35,11 @@ export function useSession(operator: boolean) {
     }, 1000);
     return () => { disposed = true; clearTimeout(reconnect); clearInterval(watchdog); socket.current?.close(); };
   }, [operator]);
-  const command = (type: ClientCommand['type']) => {
+  const command = (type: ClientCommand['type'], confirmDeleteCompleted = false) => {
     if (!operator || !connected || pending || socket.current?.readyState !== WebSocket.OPEN) return;
     setPending(true);
     setError('');
-    socket.current.send(JSON.stringify({ type, requestId: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}` } satisfies ClientCommand));
+    socket.current.send(JSON.stringify({ type, requestId: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`, confirmDeleteCompleted } satisfies ClientCommand));
   };
   return { state, connected, error, pending, command };
 }

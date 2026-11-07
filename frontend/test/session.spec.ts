@@ -3,9 +3,10 @@ import { test, expect } from '@playwright/test';
 test('operator and iPad display complete a real-time four-photo session', async ({ browser, page }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.setViewportSize({ width: 1440, height: 1080 });
+  await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto('/operator');
   await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight - innerHeight)).toBeLessThanOrEqual(0);
   const displayContext = await browser.newContext({ viewport: { width: 1024, height: 768 }, isMobile: true, hasTouch: true });
   const display = await displayContext.newPage();
   display.on('pageerror', e => errors.push(e.message));
@@ -24,7 +25,7 @@ test('operator and iPad display complete a real-time four-photo session', async 
   expect(Date.now() - started).toBeGreaterThan(37_000);
   await expect(page.getByRole('img', { name: /Saved mock photo/ })).toHaveCount(4);
   await expect(display.getByText('All four photos are safely saved.')).toBeVisible();
-  await expect(display.getByRole('img', { name: /Saved mock photo/ })).toHaveCount(4);
+  await expect(display.getByRole('img', { name: 'Completed double photo strip' })).toBeVisible();
   const manifest = await page.request.get(`/images/${await page.locator('.session-id').innerText()}/manifest.json`);
   expect(manifest.ok()).toBe(true);
   expect(await manifest.json()).toMatchObject({ status: 'COMPLETE', captures: [ { status:'saved' }, { status:'saved' }, { status:'saved' }, { status:'saved' } ] });

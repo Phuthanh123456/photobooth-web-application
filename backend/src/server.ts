@@ -15,6 +15,11 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string)
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(imageRoot, req.params.sessionId, 'frame.jpg'));
   });
+  app.get('/media/:sessionId/photo/:photo', (req, res) => {
+    if (req.params.sessionId !== engine.snapshot().sessionId || !/^[1-4]$/.test(req.params.photo)) { res.sendStatus(404); return; }
+    res.setHeader('Cache-Control', 'no-store');
+    res.sendFile(path.join(imageRoot, req.params.sessionId, `${req.params.photo}.jpg`));
+  });
   app.use('/images', express.static(imageRoot, { dotfiles: 'deny', index: false, setHeaders: res => res.setHeader('Cache-Control', 'no-store') }));
   const server = createServer(app);
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });

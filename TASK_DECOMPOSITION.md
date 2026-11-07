@@ -6,6 +6,12 @@
 - JPEG mock captures, full JPEG decode verification, progressive frame JPEG and vector-preserving PDF compositor.
 - Composition tests cover mapping, progressive rows, PDF print size, high-resolution JPEG and corrupt input.
 
+## M2B — Operator and iPad redesign
+- Two-column laptop dashboard with dominant complete-template preview and verified JPEG thumbnails.
+- Customer-only display with server countdown, friendly states, no operator controls or technical paths.
+- Prominent mock warning; responsive layout, reduced-motion flash and safe-area handling.
+- Real-time browser test passed at 1366×768 (no vertical overflow), iPad viewport and narrow mobile viewport. Test services use isolated ports 5175/3003 and storage.
+
 ## M0 — Architecture and setup
 - npm workspaces: React 19/Vite frontend, Node/TypeScript backend, shared contracts.
 - Camera interface and mock adapter; feasibility and operating rules.

@@ -1,48 +1,42 @@
 import { createRoot } from 'react-dom/client';
-import type { SessionState } from '@photobooth/shared';
 import { useSession } from './useSession';
 import './styles.css';
 
-function Slots({ state }: { state: SessionState | null }) {
-  return <div className="slots">{Array.from({ length: 4 }, (_, i) => {
-    const record = state?.captures[i];
-    return <figure className={state?.photo === i + 1 ? 'selected' : ''} key={i}>
-      {record?.status === 'saved' && record.file ? <img src={`/images/${state!.sessionId}/${record.file}`} alt={`Saved mock photo ${i + 1}`} /> : <div className="empty-slot"><span>0{i + 1}</span></div>}
-      <figcaption>Photo {i + 1}<span>{record?.status ?? 'pending'}</span></figcaption>
-    </figure>;
-  })}</div>;
-}
 function App() {
   const display = location.pathname === '/display';
   const { state, connected, error, pending, command } = useSession(!display);
   const status = state?.status ?? 'IDLE';
-  const canStart = connected && !pending && !state?.busy && ['IDLE', 'COMPLETE'].includes(status);
-  const message = !connected ? 'Connecting to the booth…' : status === 'COMPLETE' ? 'That’s a wrap.' : status === 'COUNTDOWN' ? 'Look at the camera' : status === 'CAPTURING' ? 'Hold that pose' : status === 'SAVING' ? 'Saving your photo…' : status === 'ERROR' ? 'Session paused' : status === 'CANCELLED' ? 'Session cancelled' : 'Your moment, captured.';
-  return <main className={display ? 'display' : 'operator'}>
-    <header><div className="brand"><span className="brand-mark" aria-hidden="true">▣</span><div>MEDIA TEAM<small>UNIVERSITY PHOTOBOOTH</small></div></div><div className="badges"><span className="badge">Mock Camera</span><span className={`connection ${connected ? 'online' : ''}`}>{connected ? 'Connected' : 'Reconnecting'}</span></div></header>
-    {!display && <div className="page-heading"><div><p className="eyebrow">OPERATOR WORKSPACE</p><h1>Make a little history.</h1><p>Four photos. Ten seconds to make each one yours.</p></div><a href="/display" target="_blank" rel="noreferrer">Open display ↗</a></div>}
-    <div className="workspace"><section className="preview" aria-label="Mock camera preview">
-      <div className="preview-top"><span>MOCK PREVIEW · NO LIVE VIEW</span><span>{state?.photo ? `Photo ${state.photo} of 4` : 'Four photos per session'}</span></div>
-      <div className="frame-corner tl"/><div className="frame-corner tr"/><div className="frame-corner bl"/><div className="frame-corner br"/>
-      <div className="preview-center">
+  const saved = state?.captures.filter(c => c.status === 'saved').length ?? 0;
+  const mock = state?.camera !== 'nikon';
+  const message = !connected ? 'Reconnecting…' : status === 'COMPLETE' ? 'Your photos are ready!' : status === 'COUNTDOWN' ? `Photo ${state?.photo} of 4` : status === 'CAPTURING' ? 'Smile!' : status === 'SAVING' || status === 'COMPOSING' ? 'Saving your photo…' : status === 'ERROR' ? 'Please wait for assistance' : status === 'CANCELLED' ? 'Session cancelled' : 'Get Ready';
+  const frame = state?.previewUrl ?? `/templates/page-${state?.templatePage ?? 1}.png`;
+  if (display) return <main className="display">
+    <header><span className="wordmark">CAP <small>PHOTOBOOTH</small></span><span className="badge">{mock ? 'MOCK · TEST PREVIEW' : 'NIKON Z30'}</span><span className="connection">{connected ? 'Connected' : 'Reconnecting'}</span></header>
+    <section className="customer-preview" aria-label={mock ? 'Mock camera preview' : 'Nikon Live View'}>
+      {state?.liveViewUrl && connected ? <img className="live-view" src={state.liveViewUrl} alt="Nikon Live View"/> : <div className="preview-placeholder" aria-hidden="true"><div className="lens"/></div>}
+      <div className="guidance"><p className="eyebrow">{status === 'COUNTDOWN' ? 'LOOK AT THE CAMERA' : 'MAKE A MEMORY'}</p>
         {connected && status === 'COUNTDOWN' && <div className="countdown">{state?.remainingSeconds}</div>}
-        {status === 'COMPLETE' && connected && <div className="complete-symbol" aria-hidden="true">✓</div>}
-        {(!connected || !['COUNTDOWN', 'COMPLETE'].includes(status)) && <div className="lens" aria-hidden="true"><div/></div>}
-        <h2>{message}</h2><p>{status === 'COMPLETE' ? 'All four photos are safely saved.' : display ? 'Your operator will guide the session.' : 'Mock camera · ready for a test session'}</p>
+        <h1>{message}</h1><p>{status === 'COMPLETE' ? 'All four photos are safely saved.' : mock ? 'Mock mode · no real camera image' : status === 'ERROR' ? 'Your operator will help you.' : 'Your operator will guide the session.'}</p>
       </div>
       {connected && status === 'CAPTURING' && <div className="flash" key={`${state?.sessionId}-${state?.photo}`} aria-hidden="true"/>}
-      <div className="preview-bottom"><span>UNIVERSITY MEDIA TEAM</span><span>04 FRAMES / 10 SEC</span></div>
-    </section>
-    {!display && <aside className="controls"><p className="eyebrow">SESSION CONTROL</p><div className="status-row"><h2>{status}</h2><span>{String(state?.photo ?? 0).padStart(2, '0')} / 04</span></div><p className="explanation">Each photo starts with a full 10-second countdown. The next begins once the image is saved and the camera is ready.</p><dl><div><dt>Countdown</dt><dd>{connected && status === 'COUNTDOWN' ? `${state?.remainingSeconds}s` : '—'}</dd></div><div><dt>Camera mode</dt><dd>Mock adapter</dd></div><div><dt>Saved images</dt><dd>{state?.captures.filter(c => c.status === 'saved').length ?? 0} of 4</dd></div></dl>
-      <button className="primary" disabled={!canStart} onClick={() => command('START')}>Start Session <span aria-hidden="true">→</span></button>
-      <button disabled={!connected || pending || !state?.busy || ['ERROR', 'CANCELLED'].includes(status)} onClick={() => command('CANCEL')}>Cancel Session</button>
-      {['ERROR', 'CANCELLED'].includes(status) && <button disabled={!connected || pending || state?.busy} onClick={() => command('RESET')}>Acknowledge & reset</button>}
-      <p className="operator-note">Laptop controls the session.<br/>The iPad is a display only.</p>
-      <div role="alert">{(state?.error || error) && <p className="error">{state?.error || error}</p>}</div>
-    </aside>}</div>
-    {!display && <section className="captures"><div className="section-heading"><h2>The four frames</h2><span>Verified images appear here</span></div><Slots state={state}/><img style={{maxHeight:500, maxWidth:'100%',marginTop:16}} src={state?.previewUrl ?? '/templates/page-1.png'} alt="Progressive Frame CAP double strip"/></section>}
-    {display && status === 'COMPLETE' && connected && <Slots state={state}/>}
-    <footer><span>{display ? 'DISPLAY ONLY' : 'MOCK CAMERA TEST ENVIRONMENT'}</span><span className="session-id">{state?.sessionId ?? 'No session started'}</span></footer>
+    </section><footer><span>UNIVERSITY MEDIA TEAM</span><span>{connected && state?.photo ? `Photo ${state.photo} of 4` : 'FOUR FRAMES. ONE MEMORY.'}</span></footer>
+    {status === 'COMPLETE' && connected && <div className="customer-result"><img src={frame} alt="Completed double photo strip"/></div>}
+  </main>;
+  return <main className="operator">
+    <header><div className="wordmark">CAP <small>MEDIA TEAM / PHOTOBOOTH</small></div><div className="header-right"><span className="connection">{connected ? 'Connected' : 'Reconnecting'}</span><a href="/display" target="_blank" rel="noreferrer">Open iPad display ↗</a></div></header>
+    <div className="workspace"><aside className="controls"><div className="intro"><p className="eyebrow">OPERATOR WORKSPACE</p><h1>Let’s make memories.</h1><p>Four frames. A moment to keep.</p></div>
+      <div className={`mode ${mock ? 'mock' : 'real'}`}><strong>{mock ? 'MOCK CAMERA — TEST IMAGES' : 'REAL NIKON Z30'}</strong><span>{mock ? 'No physical shutter will be triggered.' : state?.cameraStatus ?? 'Hardware validation required'}</span></div>
+      <div className="status-row"><h2>{status}</h2><span>{saved} / 4 saved</span></div>
+      <dl><div><dt>Camera connection</dt><dd>{state?.cameraStatus ?? (connected ? 'Mock ready' : 'Disconnected')}</dd></div><div><dt>Countdown</dt><dd>{connected && status === 'COUNTDOWN' ? `${state?.remainingSeconds}s` : '—'}</dd></div><div><dt>Current photo</dt><dd>{state?.photo ?? 0} / 4</dd></div><div><dt>Verification</dt><dd>{saved === 4 ? 'All originals verified' : `${saved} verified JPEGs`}</dd></div><div><dt>Final output</dt><dd>{state?.output ? 'Verified · ready' : status === 'COMPOSING' ? 'Generating…' : 'Pending'}</dd></div></dl>
+      <div className="actions"><button className="primary" disabled={!connected || pending || state?.busy || !['IDLE','COMPLETE'].includes(status)} onClick={() => command('START')}>Start Session <span aria-hidden="true">→</span></button><div className="secondary-actions"><button disabled={!connected || pending || !state?.busy || ['CANCELLED','ERROR','RESETTING'].includes(status)} onClick={() => command('CANCEL')}>Cancel Session</button><button disabled={!connected || pending || status === 'IDLE'} onClick={() => {
+        if (status === 'COMPLETE' && !window.confirm('Retake this completed session? Its final JPG, PDF and manifest will be permanently deleted. Earlier sessions will be kept.')) return;
+        command('RESET', status === 'COMPLETE');
+      }}>{['ERROR','CANCELLED'].includes(status) ? 'Acknowledge & reset' : 'Reset / Retake'}</button></div></div>
+      <div className="slots">{Array.from({length:4}, (_,i) => <figure key={i}>{state?.captures[i]?.status === 'saved' ? <img src={`/media/${state.sessionId}/photo/${i+1}`} alt={`Saved mock photo ${i+1}`}/> : <div className="empty-slot">0{i+1}</div>}<figcaption>Photo {i+1}</figcaption></figure>)}</div>
+      <div className="error-region" role="alert">{(error || state?.error) && <p className="error">{error || state?.error}</p>}</div>
+      <div className="storage-note"><span className="eyebrow">OUTPUT FOLDER</span><p>{state?.outputFolder ?? 'storage/output'}</p>{state?.output && <div><a href={state.output.jpgUrl} download>Download JPG</a> · <a href={state.output.pdfUrl} download>Print PDF</a></div>}</div>
+    </aside><section className="frame-panel"><div className="panel-heading"><div><p className="eyebrow">YOUR DOUBLE STRIP</p><h2>{status === 'COMPLETE' ? 'Ready to keep.' : 'A little moment, twice.'}</h2></div><span className="badge">{saved} / 4 PHOTOS</span></div><div className="frame-stage"><img src={frame} alt="Progressive Frame CAP double strip"/></div><div className="frame-caption"><span>Frame CAP · {state?.templatePage === 2 ? 'Blue / Green' : 'Coral / Sky'}</span><span>Original artwork · cover crop</span></div></section></div>
+    <footer><span>10 SECONDS PER PHOTO · SERVER SYNCHRONIZED</span><span className="session-id">{state?.sessionId ?? 'No session started'}</span></footer>
     <span className="sr-only" role="status">{connected ? `Session ${status}. Photo ${state?.photo ?? 0} of 4.` : 'Connection lost. Waiting for server.'}</span>
   </main>;
 }
