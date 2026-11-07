@@ -44,7 +44,7 @@ export function useSession(operator: boolean) {
     if (!operator || !connected || pending || socket.current?.readyState !== WebSocket.OPEN) return;
     setPending(true);
     setError('');
-    socket.current.send(JSON.stringify({ type, requestId: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`, confirmDeleteCompleted } satisfies ClientCommand));
+    socket.current.send(JSON.stringify({ type, requestId: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`, sessionId:state?.sessionId ?? null, confirmDeleteCompleted } satisfies ClientCommand));
   };
   return { state, connected, error, pending, command };
 }

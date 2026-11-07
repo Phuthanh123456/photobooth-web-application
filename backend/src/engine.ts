@@ -16,10 +16,14 @@ export class SessionEngine extends EventEmitter {
   private resetting = false;
   constructor(private camera: NikonCameraAdapter, private storage: SessionStorage, private clock: Clock = monotonicClock) { super(); }
   snapshot(): SessionState {
-    return structuredClone({ ...this.state, camera: this.camera.kind, templatePage: this.storage.templatePage ?? 1, outputFolder: this.storage.outputFolder, serverNowMs: this.clock.now(), remainingSeconds: this.state.status === 'COUNTDOWN' && this.state.countdownDeadlineMs !== null ? Math.max(0, Math.ceil((this.state.countdownDeadlineMs - this.clock.now()) / 1000)) : 0 });
+    return structuredClone({ ...this.state, camera: this.camera.kind, cameraMode:this.camera.kind === 'nikon' ? 'REAL_NIKON' : 'MOCK', cameraStatus:this.camera.status ?? 'Mock ready', canStartSession:this.camera.canStartSession ?? true,
+      liveViewUrl:this.camera.kind==='nikon' && this.camera.latestFrame && performance.now()-this.camera.latestFrame.at<3000 ? '/live-view.mjpg' : undefined,
+      liveViewStatus:this.camera.previewStatus,
+      templatePage: this.storage.templatePage ?? 1, outputFolder: this.storage.outputFolder, serverNowMs: this.clock.now(), remainingSeconds: this.state.status === 'COUNTDOWN' && this.state.countdownDeadlineMs !== null ? Math.max(0, Math.ceil((this.state.countdownDeadlineMs - this.clock.now()) / 1000)) : 0 });
   }
   private publish() { this.emit('state', this.snapshot()); }
   start(): void {
+    this.camera.assertSessionAllowed?.();
     if (this.resetting || this.state.busy || !['IDLE', 'COMPLETE'].includes(this.state.status)) throw new Error('Session cannot start; cancel or acknowledge the current session first');
     const previousId = this.state.status === 'COMPLETE' ? this.state.sessionId : null;
     this.cancelled = false;
@@ -55,7 +59,10 @@ export class SessionEngine extends EventEmitter {
       try {
         await active;
         this.state.status = 'RESETTING'; this.state.busy = true; this.publish();
-        if (id) await this.storage.cleanup?.(id, completed && confirmDeleteCompleted);
+        if (id) {
+          await this.camera.cleanupSession?.(id);
+          await this.storage.cleanup?.(id, completed && confirmDeleteCompleted);
+        }
         this.state = initial();
       } catch (error) { this.state.status = 'ERROR'; this.state.busy = false; this.state.error = `Reset failed: ${String(error)}. Inspect storage before trying again.`; }
       finally { this.resetting = false; this.publish(); }

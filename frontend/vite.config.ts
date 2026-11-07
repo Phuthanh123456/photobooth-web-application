@@ -14,5 +14,5 @@ export default defineConfig({ plugins: [react(), { name:'local-operator-bootstra
     } catch { res.statusCode = 503; res.end('Backend unavailable'); }
   });
 } }], server: { host: '0.0.0.0', port: Number(process.env.FRONTEND_PORT ?? 5173), strictPort: true, proxy: {
-  '/ws': { target: backend, ws: true }, '/media': backend, '/templates': backend, '/images': backend, '/health': backend,
+  '/ws': { target: backend, ws: true }, '/media': backend, '/templates': backend, '/images': backend, '/health': backend, '/live-view.mjpg':backend,
 } } });

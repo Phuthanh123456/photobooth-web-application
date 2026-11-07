@@ -6,6 +6,12 @@ export interface CameraImage { bytes: Uint8Array; extension: 'svg' | 'jpg' }
  * waitUntilReady must confirm hardware readiness, not merely transfer completion. */
 export interface NikonCameraAdapter {
   readonly kind: 'mock' | 'nikon';
+  readonly status?: string;
+  readonly canStartSession?: boolean;
+  readonly latestFrame?: { bytes: Buffer; at: number };
+  readonly previewStatus?: string;
+  assertSessionAllowed?(): void;
+  cleanupSession?(sessionId: string): Promise<void>;
   waitUntilReady(): Promise<void>;
   capture(request: CaptureRequest): Promise<CameraImage>;
 }

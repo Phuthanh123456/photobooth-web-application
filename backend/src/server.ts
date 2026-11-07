@@ -7,14 +7,31 @@ import { templateDirectory } from './composition.js';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { FileSessionStorage, validSessionId } from './storage.js';
+import type { NikonCameraAdapter } from './camera.js';
 
-export function createPhotoboothServer(engine: SessionEngine, imageRoot: string, storage = new FileSessionStorage(imageRoot)) {
+export function createPhotoboothServer(engine: SessionEngine, imageRoot: string, storage = new FileSessionStorage(imageRoot), camera?:NikonCameraAdapter) {
   const app = express();
   const operatorToken = randomBytes(32).toString('hex');
   const authorized = (cookie?: string) => cookie?.split(';').some(part => part.trim() === `photobooth_operator=${operatorToken}`) ?? false;
   const operators = new WeakSet<WebSocket>();
   app.get('/internal/operator-token', (_req, res) => res.setHeader('Cache-Control','no-store').json({ token:operatorToken }));
-  app.get('/health', (_req, res) => res.json({ ok: true, camera: 'mock' }));
+  app.get('/health', (_req, res) => res.json({ ok: true, camera: engine.snapshot().camera, mode:engine.snapshot().cameraMode, ready:engine.snapshot().canStartSession }));
+  let streams=0;
+  app.get('/live-view.mjpg',(req,res)=> {
+    if(camera?.kind!=='nikon' || !camera.latestFrame || performance.now()-camera.latestFrame.at>3000) {res.sendStatus(503);return;}
+    if(streams>=4) {res.sendStatus(429);return;}
+    streams++;
+    res.setHeader('Content-Type','multipart/x-mixed-replace; boundary=frame'); res.setHeader('Cache-Control','no-store'); res.flushHeaders();
+    let lastAt=-1;
+    const interval=setInterval(()=> {
+      const frame=camera.latestFrame;
+      if(!frame || performance.now()-frame.at>3000) {res.end();return;}
+      if(frame.at===lastAt || res.writableLength>2*1024*1024) return;
+      lastAt=frame.at;
+      res.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.bytes.length}\r\n\r\n`);res.write(frame.bytes);res.write('\r\n');
+    },120);
+    res.on('close',()=>{clearInterval(interval);streams--;});
+  });
   app.use('/templates', express.static(templateDirectory, { index: false }));
   app.get('/media/:sessionId/frame', (req, res) => {
     if (req.params.sessionId !== engine.snapshot().sessionId) { res.sendStatus(404); return; }
@@ -49,7 +66,7 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string,
       if (ws.bufferedAmount > 1024 * 1024) { ws.terminate(); return; }
       if (event.type === 'STATE' && !operators.has(ws)) {
         event = { ...event, state: { ...event.state, error:event.state.error ? 'Please wait for assistance' : undefined, outputFolder:undefined, output:undefined,
-          captures:event.state.captures.map(c => ({ photo:c.photo, status:c.status })), cameraStatus:undefined } };
+          captures:event.state.captures.map(c => ({ photo:c.photo, status:c.status })), cameraStatus:undefined, liveViewStatus:undefined } };
       }
       ws.send(JSON.stringify(event));
     }
@@ -78,7 +95,9 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string,
           switch (command.type) {
             case 'START': engine.start(); break;
             case 'CANCEL': engine.cancel(); break;
-            case 'RESET': void engine.requestReset('confirmDeleteCompleted' in command && command.confirmDeleteCompleted === true); break;
+            case 'RESET':
+              if (!('sessionId' in command) || command.sessionId !== engine.snapshot().sessionId) throw new Error('Session changed; review it before resetting');
+              void engine.requestReset('confirmDeleteCompleted' in command && command.confirmDeleteCompleted === true); break;
             default: throw new Error('Unknown command');
           }
           send(ws, { type: 'COMMAND_RESULT', requestId, ok: true });

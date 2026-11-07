@@ -17,6 +17,8 @@ export interface SessionState {
   status: Status;
   photo: number;
   camera: 'mock' | 'nikon';
+  cameraMode?: 'MOCK' | 'REAL_NIKON';
+  canStartSession?: boolean;
   countdownDeadlineMs: number | null;
   remainingSeconds: number;
   serverNowMs: number;
@@ -27,8 +29,9 @@ export interface SessionState {
   templatePage?: number;
   cameraStatus?: string;
   liveViewUrl?: string;
+  liveViewStatus?: string;
   outputFolder?: string;
   output?: { jpgUrl: string; pdfUrl: string; manifestUrl: string };
 }
-export type ClientCommand = { type: 'START' | 'CANCEL' | 'RESET'; requestId: string; confirmDeleteCompleted?: boolean };
+export type ClientCommand = { type: 'START' | 'CANCEL' | 'RESET'; requestId: string; sessionId?: string | null; confirmDeleteCompleted?: boolean };
 export type ServerEvent = { type: 'STATE'; state: SessionState } | { type: 'COMMAND_RESULT'; requestId: string; ok: boolean; error?: string };
