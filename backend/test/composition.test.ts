@@ -47,3 +47,11 @@ it('rejects truncated and falsely labeled JPEG data', async () => {
   const jpeg = await sharp({ create: { width: 32, height: 32, channels: 3, background: 'red' } }).jpeg().toBuffer();
   await expect(verifyJpeg(jpeg.subarray(0,jpeg.length-10))).rejects.toThrow();
 });
+it('preserves both edges of a wide photo instead of cropping them to fill the slot',async()=> {
+  const edge=(color:string)=>sharp({create:{width:60,height:300,channels:3,background:color}}).png().toBuffer();
+  const original=await sharp({create:{width:600,height:300,channels:3,background:'red'}}).composite([{input:await edge('lime'),left:0,top:0},{input:await edge('blue'),left:540,top:0}]).jpeg().toBuffer();
+  const {data,info}=await sharp(await composeJpeg(new Map([[1,original]]),1,72)).raw().toBuffer({resolveWithObject:true});
+  const pixel=(x:number,y:number)=>[...data.subarray((y*info.width+x)*info.channels,(y*info.width+x)*info.channels+3)];
+  expect(pixel(40,80)[1]).toBeGreaterThan(220);expect(pixel(193,80)[2]).toBeGreaterThan(220);
+  expect(pixel(40,80)[0]).toBeLessThan(30);expect(pixel(193,80)[0]).toBeLessThan(30);
+});

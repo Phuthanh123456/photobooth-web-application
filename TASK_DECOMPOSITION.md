@@ -1,5 +1,13 @@
 # Milestones
 
+## 2026-11-08 requested changes
+
+- Implemented unobstructed camera content during capture/save/composition, retaining countdown and flash.
+- Implemented full-photo contain fitting in JPG/PDF; raster checks preserved both edges of a wide image.
+- Implemented automatic native Windows Save As after COMPLETE, remembered folder, verified copy, overwrite/cancel/error handling, operator-only retry and privacy. The operator completed an actual save of an existing final with zero new shutters.
+- Restarted REAL_NIKON services on 5176/3004 with the existing valid camera report; Z30 ready and Live View streaming.
+- Deferred sticker artwork replacement at the operator's request: the supplied PDF duplicated the old file; correct replacement will be provided later.
+
 ## Fourth-photo SDK correction (completed and revalidated)
 
 - Confine EnumDevices to initial discovery; use connected-body DeviceReady in the capture/preview path. Await explicitly busy readiness responses without retrying capture.

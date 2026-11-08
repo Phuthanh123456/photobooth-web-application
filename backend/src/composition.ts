@@ -33,7 +33,7 @@ export async function composeJpeg(images: Map<number, Uint8Array>, page = 1, dpi
     const left = Math.round(slot.x * scale), top = Math.round(slot.y * scale);
     const w = Math.round((slot.x + slot.width) * scale) - left;
     const h = Math.round((slot.y + slot.height) * scale) - top;
-    const input = await sharp(original, { failOn: 'warning' }).autoOrient().resize(w, h, { fit: 'cover', position: 'centre' }).png().toBuffer();
+    const input = await sharp(original, { failOn: 'warning' }).autoOrient().resize(w, h, { fit: 'contain', background: '#ffffff' }).png().toBuffer();
     layers.push({ input, left, top });
   }
   return sharp(path.join(templateDirectory, `page-${page}.png`)).resize(width, height).composite(layers).withMetadata({ density: dpi }).jpeg({ quality: 95, chromaSubsampling: '4:4:4' }).toBuffer();
@@ -51,7 +51,7 @@ export async function composePdf(images: Map<number, Uint8Array>, pageNumber = 1
     const oriented = metadata.orientation && metadata.orientation !== 1 ? await sharp(bytes).autoOrient().jpeg({ quality: 98 }).toBuffer() : bytes;
     const jpeg = await document.embedJpg(oriented);
     for (const slot of geometry.slots.filter(s => s.photo === photo)) {
-      const scale = Math.max(slot.width / jpeg.width, slot.height / jpeg.height);
+      const scale = Math.min(slot.width / jpeg.width, slot.height / jpeg.height);
       const w = jpeg.width * scale, h = jpeg.height * scale;
       const y = geometry.heightPt - slot.y - slot.height;
       page.pushOperators(pushGraphicsState(), rectangle(slot.x, y, slot.width, slot.height), clip(), endPath());

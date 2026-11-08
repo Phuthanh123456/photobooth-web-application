@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { useSession } from './useSession';
 import { LiveView } from './LiveView';
+import { DesktopSaveNotice } from './DesktopSaveNotice';
 import './styles.css';
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
   const mock = state?.camera !== 'nikon';
   const message = !connected ? 'Reconnecting…' : status === 'COMPLETE' ? 'Your photos are ready!' : status === 'COUNTDOWN' ? `Photo ${state?.photo} of 4` : status === 'CAPTURING' ? 'Smile!' : status === 'SAVING' || status === 'COMPOSING' ? 'Saving your photo…' : status === 'ERROR' ? 'Please wait for assistance' : status === 'CANCELLED' ? 'Session cancelled' : 'Get Ready';
   const frame = state?.previewUrl ?? `/templates/page-${state?.templatePage ?? 1}.png`;
+  const showGuidance = !connected || !['CAPTURING','SAVING','COMPOSING'].includes(status);
   if (display) return <main className={`display${status === 'COMPLETE' ? ' is-complete' : ''}`}>
     <header><span className="wordmark">CAP <small>PHOTOBOOTH</small></span><span className="badge">{mock ? 'MOCK · TEST PREVIEW' : 'NIKON Z30'}</span><span className="connection">{connected ? 'Connected' : 'Reconnecting'}</span></header>
     {status === 'COMPLETE' ? <section className="completed-display" aria-label="Completed photo strip">
@@ -18,10 +20,10 @@ function App() {
       <div className="completed-artwork-wrap">{state?.sessionId && <img className="completed-artwork" src={`/media/${state.sessionId}/frame`} alt="Your four completed photos in the Frame CAP"/>}</div>
     </section> : <section className="customer-preview" aria-label={mock ? 'Mock camera preview' : 'Nikon Live View'}>
       {!mock && connected ? <LiveView url="/live-view.mjpg"/> : <div className="preview-placeholder" aria-hidden="true"><div className="lens"/></div>}
-      <div className={`guidance${state?.liveViewUrl ? ' over-live' : ''}`}><p className="eyebrow">{status === 'COUNTDOWN' ? 'LOOK AT THE CAMERA' : 'MAKE A MEMORY'}</p>
+      {showGuidance && <div className={`guidance${state?.liveViewUrl ? ' over-live' : ''}`}><p className="eyebrow">{status === 'COUNTDOWN' ? 'LOOK AT THE CAMERA' : 'MAKE A MEMORY'}</p>
         {connected && status === 'COUNTDOWN' && <div className="countdown">{state?.remainingSeconds}</div>}
         <h1>{message}</h1><p>{mock ? 'Mock mode · no real camera image' : status === 'ERROR' ? 'Your operator will help you.' : 'Your operator will guide the session.'}</p>
-      </div>
+      </div>}
       {connected && status === 'CAPTURING' && <div className="flash" key={`${state?.sessionId}-${state?.photo}`} aria-hidden="true"/>}
     </section>}
     <footer><span>UNIVERSITY MEDIA TEAM</span><span>{connected && state?.photo ? `Photo ${state.photo} of 4` : 'FOUR FRAMES. ONE MEMORY.'}</span></footer>
@@ -38,8 +40,9 @@ function App() {
       }}>{['ERROR','CANCELLED'].includes(status) ? 'Acknowledge & reset' : 'Reset / Retake'}</button></div></div>
       <div className="slots">{Array.from({length:4}, (_,i) => <figure key={i}>{state?.captures[i]?.status === 'saved' ? <img src={`/media/${state.sessionId}/photo/${i+1}`} alt={`Saved mock photo ${i+1}`}/> : <div className="empty-slot">0{i+1}</div>}<figcaption>Photo {i+1}</figcaption></figure>)}</div>
       <div className="error-region" role="alert">{(error || state?.error) && <p className="error">{error || state?.error}</p>}</div>
+      {state?.desktopSave && <DesktopSaveNotice state={state.desktopSave} reopen={()=>command('SAVE_AS')} disabled={!connected || pending || status!=='COMPLETE'}/>}
       <div className="storage-note">{!mock && <p>Live View: {state?.liveViewStatus ?? 'Unavailable'}</p>}<span className="eyebrow">OUTPUT FOLDER</span><p>{state?.outputFolder ?? 'storage/output'}</p>{state?.output && <div><a href={state.output.jpgUrl} download>Download JPG</a> · <a href={state.output.pdfUrl} download>Print PDF</a></div>}</div>
-    </aside><section className="frame-panel"><div className="panel-heading"><div><p className="eyebrow">YOUR DOUBLE STRIP</p><h2>{status === 'COMPLETE' ? 'Ready to keep.' : 'A little moment, twice.'}</h2></div><span className="badge">{saved} / 4 PHOTOS</span></div><div className="frame-stage"><img src={frame} alt="Progressive Frame CAP double strip"/></div><div className="frame-caption"><span>Frame CAP · {state?.templatePage === 2 ? 'Blue / Green' : 'Coral / Sky'}</span><span>Original artwork · cover crop</span></div></section></div>
+    </aside><section className="frame-panel"><div className="panel-heading"><div><p className="eyebrow">YOUR DOUBLE STRIP</p><h2>{status === 'COMPLETE' ? 'Ready to keep.' : 'A little moment, twice.'}</h2></div><span className="badge">{saved} / 4 PHOTOS</span></div><div className="frame-stage"><img src={frame} alt="Progressive Frame CAP double strip"/></div><div className="frame-caption"><span>Frame CAP · {state?.templatePage === 2 ? 'Blue / Green' : 'Coral / Sky'}</span><span>Full photo · no crop</span></div></section></div>
     <footer><span>10 SECONDS PER PHOTO · SERVER SYNCHRONIZED</span><span className="session-id">{state?.sessionId ?? 'No session started'}</span></footer>
     <span className="sr-only" role="status">{connected ? `Session ${status}. Photo ${state?.photo ?? 0} of 4.` : 'Connection lost. Waiting for server.'}</span>
   </main>;

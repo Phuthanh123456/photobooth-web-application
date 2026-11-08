@@ -10,6 +10,9 @@ import { SessionEngine } from '../src/engine.js';
 import { FileSessionStorage } from '../src/storage.js';
 import { MockCameraAdapter } from '../src/camera.js';
 import { createPhotoboothServer } from '../src/server.js';
+import {DesktopSave} from '../src/desktop-save.js';
+import {randomUUID} from 'node:crypto';
+let desktopSave:DesktopSave;
 let root: string; let engine: SessionEngine; let host: ReturnType<typeof createPhotoboothServer>; let url: string;
 const clients: WebSocket[] = [];
 function connect(role: string) {
@@ -25,11 +28,14 @@ function event(ws: WebSocket, matches: (e: ServerEvent) => boolean): Promise<Ser
 }
 beforeEach(async () => {
   root = await mkdtemp(path.join(os.tmpdir(),'photobooth-ws-'));
-  engine = new SessionEngine(new MockCameraAdapter(),new FileSessionStorage(root));
-  host = createPhotoboothServer(engine,root); host.server.listen(0,'127.0.0.1'); await once(host.server,'listening');
+  const storage=new FileSessionStorage(root);
+  engine = new SessionEngine(new MockCameraAdapter(),storage);
+  desktopSave=new DesktopSave(storage,async()=>null);
+  host = createPhotoboothServer(engine,root,storage,undefined,desktopSave); host.server.listen(0,'127.0.0.1'); await once(host.server,'listening');
   url = `ws://127.0.0.1:${(host.server.address() as AddressInfo).port}/ws`;
 });
 afterEach(async () => {
+  await desktopSave.close();
   if (engine.snapshot().busy && !['CANCELLED', 'ERROR'].includes(engine.snapshot().status)) engine.cancel(); await engine.settled();
   clients.splice(0).forEach(ws => ws.terminate());
   await new Promise<void>(resolve => host.server.close(() => resolve()));
@@ -70,4 +76,16 @@ it('redacts technical errors and storage paths from display snapshots', async ()
   const display = connect('display'); const snapshot=await event(display,e=>e.type==='STATE');
   if(snapshot.type !== 'STATE') throw new Error('Expected snapshot');
   expect(snapshot.state.outputFolder).toBeUndefined(); expect(snapshot.state.output).toBeUndefined();
+});
+it('keeps native Save As paths private and rejects Save As commands from the display',async()=> {
+  const id=randomUUID();engine.restoreInterrupted({...engine.snapshot(),sessionId:id,status:'ERROR'});
+  desktopSave.request(id);await desktopSave.settled();
+  const operator=connect('operator');const privateState=await event(operator,e=>e.type==='STATE');
+  const display=connect('display');const publicState=await event(display,e=>e.type==='STATE');
+  if(privateState.type!=='STATE' || publicState.type!=='STATE') throw new Error('Expected states');
+  expect(privateState.state.desktopSave?.error).toContain(root);
+  expect(publicState.state.desktopSave).toBeUndefined();
+  const denied=event(display,e=>e.type==='COMMAND_RESULT');
+  display.send(JSON.stringify({type:'SAVE_AS',requestId:'display-save',sessionId:id}));
+  expect(await denied).toMatchObject({ok:false});
 });

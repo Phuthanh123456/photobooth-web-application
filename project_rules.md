@@ -1,5 +1,8 @@
 # Project operating and implementation rules
 
+- After countdown, CAPTURING/SAVING/COMPOSING must keep camera content unobstructed by Smile/saving guidance cards; retain the capture flash. Fit the full photo inside its slot without cropping or stretching. The intended replacement sticker PDF is pending: inspect it when supplied and preserve its artwork/stickers above the photos instead of overwriting them.
+- Windows Save As may open automatically only after verified COMPLETE. Save a verified copy, remember the successful destination folder, preserve final output on cancellation/error, and never send desktop paths or Save As controls to display clients. Normal automated tests inject the dialog and must not open real Windows prompts.
+
 - Discover Nikon devices only when establishing the SDK connection. Do not call EnumDevices from connected-body readiness, preview transitions or capture: use DeviceReady and propagate its busy/disconnected errors. Preview recovery may restart remote Live View, never replay a shutter. Run the native SDK regression after native changes, and revalidate changed fingerprints before enabling real sessions.
 
 - Record device evidence precisely: Safari iPhone confirmation and WebKit tablet-viewport tests do not establish physical iPad acceptance. Actual iPad testing remains pending until that device is available.

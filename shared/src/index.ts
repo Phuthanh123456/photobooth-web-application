@@ -32,6 +32,12 @@ export interface SessionState {
   liveViewStatus?: string;
   outputFolder?: string;
   output?: { jpgUrl: string; pdfUrl: string; manifestUrl: string };
+  desktopSave?: DesktopSaveState;
 }
-export type ClientCommand = { type: 'START' | 'CANCEL' | 'RESET'; requestId: string; sessionId?: string | null; confirmDeleteCompleted?: boolean };
+export interface DesktopSaveState {
+  status: 'queued' | 'choosing' | 'saving' | 'saved' | 'cancelled' | 'error';
+  path?: string;
+  error?: string;
+}
+export type ClientCommand = { type: 'START' | 'CANCEL' | 'RESET' | 'SAVE_AS'; requestId: string; sessionId?: string | null; confirmDeleteCompleted?: boolean };
 export type ServerEvent = { type: 'STATE'; state: SessionState } | { type: 'COMMAND_RESULT'; requestId: string; ok: boolean; error?: string };

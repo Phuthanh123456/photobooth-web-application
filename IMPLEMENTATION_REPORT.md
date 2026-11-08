@@ -1,5 +1,17 @@
 # Implementation report — 2026-11-07
 
+## Capture display, full-photo fitting and native Save As (2026-11-08)
+
+Implemented per the operator's new request: hide all guidance cards during CAPTURING/SAVING/COMPOSING while retaining authoritative countdown and capture flash; retain large final-frame display. Both JPEG and PDF now fit the entire photo within its slot without cropping/stretching. Rendered PDF and JPEG regression artifacts retained both colored edges of a deliberately wide fixture.
+
+Added a Windows STA SaveFileDialog launched by the backend after verified COMPLETE, with duplicate suppression, serialized dialogs, remembered successful destination, explicit overwrite confirmation, verified copying, cancellation/error preservation, shutdown cancellation, operator-only retry, and display-path redaction. Save As is enabled by AUTO_SAVE_DIALOG=1. The operator confirmed the real dialog appeared and pressed Save; a verified copy of an existing final was saved in Downloads and that folder was remembered. Private evidence: storage/hardware-test/windows-save-as-check.json. This check issued zero shutters and left the source final intact. No Nikon bridge/adapter fingerprints changed.
+
+Current template status: Frame CAP (1).pdf exactly matched the old PDF, including SHA-256 and its eight empty slots. The operator confirmed the wrong file and asked to continue the other changes. Correct sticker artwork is pending; no sticker replacement is claimed. User-requested layering will be completed when the correct file is supplied.
+
+Production build, 58 backend tests and four Chromium/WebKit E2E tests passed. Backend tests cover automatic Save As after four-photo finalization, duplicate/cancel/retry, folder memory, copy verification/overwrite, source preservation, shutdown and display privacy. The actual restarted Z30 backend is IDLE, hardware validated, with fresh Live View; frontend remains on 5176 and loopback backend on 3004.
+
+The sections below contain earlier evidence, including the earlier cover-crop implementation superseded by today's contain fitting.
+
 ## Fourth-photo native SDK correction (current verified binary)
 
 Failed session `96a50b69-7d06-4981-aff6-ba717293638c` kept three verified originals. Its log showed DeviceReady success followed by EnumDevices failure (-108) during live preview before the fourth shutter. Removed USB rediscovery from ready(): connected-body DeviceReady still rejects busy/disconnected states. Added bounded waits for explicit busy responses, latched readiness/capture failures, and rejection of late preview frames after faults. Added GetLiveViewStatus-based recovery of orphan remote preview and orderly native console/backend shutdown.

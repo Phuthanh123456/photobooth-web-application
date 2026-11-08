@@ -2,7 +2,17 @@
 
 Current real-camera validation setup: laptop **http://localhost:5176/operator**, display **http://192.168.1.6:5176/display**, loopback backend 3004. Port 5173 may still be a separate MOCK app. The operator confirmed real Live View in **Safari iPhone**; no physical iPad is available yet. Single-photo and four-photo Z30 capture/export have passed. Physical iPad, disruptive USB/power tests and actual printing remain pending.
 
-## Fourth-photo SDK fix (current)
+## Capture display and automatic Save As (2026-11-08)
+
+After each countdown, the display flashes and keeps the camera unobstructed during CAPTURING, SAVING and COMPOSING. It shows no Smile/saving card in those states. The completed frame still fills the main display after photo 4.
+
+The JPEG and PDF compositors fit the entire photo inside each slot without cropping or stretching. Different aspect ratios can leave white bars. The supplied `Frame CAP (1).pdf` was byte-identical to the old template; the operator confirmed it was the wrong file and deferred the sticker replacement until the correct PDF is provided. The current frame is retained temporarily.
+
+Set `AUTO_SAVE_DIALOG=1` on the Windows backend to open a native Save As window automatically after COMPLETE. Choose a folder and press Save; the chosen folder is remembered for subsequent sessions. Optional `PHOTOBOOTH_SAVE_FOLDER` sets the initial folder before the first successful save. Cancel keeps the verified originals/final output and does not automatically reopen the window. The operator can use **Save image as…** to try again. A confirmed overwrite is required for existing files. Save As runs on the laptop; display clients cannot open it or receive saved paths. Finish/cancel an open dialog before deleting the current completed session with Retake. Browser download links remain optional fallback actions.
+
+The real Windows dialog was operator-confirmed and saved a byte-verified copy of an existing final JPEG. No new shutters were issued for this change. See IMPLEMENTATION_REPORT.md for test evidence.
+
+## Fourth-photo SDK fix (verified native binary)
 
 The failing session saved three photos, then `EnumDevices` failed with -108 immediately after a successful DeviceReady. The bridge now discovers devices only when connecting; every connected-body readiness check uses DeviceReady, with no USB rescan during capture or preview. Explicit body-busy responses are awaited without retrying shutters. Remote preview left by an earlier process is stopped/restarted using documented GetLiveViewStatus. Terminal shutdown lets the backend close the SDK cleanly.
 
@@ -24,6 +34,7 @@ $env:CAMERA_MODE='REAL_NIKON'
 $env:NIKON_VALIDATION_FILE='D:\PhuThanh\Code\photobooth\storage\hardware-test\2849c116-f40d-4d14-9ee0-03d6895eb0f1\result.json'
 $env:BACKEND_PORT='3004'
 $env:FRONTEND_PORT='5176'
+$env:AUTO_SAVE_DIALOG='1'
 npm run dev
 ```
 
@@ -53,7 +64,7 @@ MOCK produces labeled, valid 1800×1200 JPEG test images. Its preview is clearly
 1. Open `/operator` using localhost on the laptop. Open `/display` on the iPad. Wait for Connected.
 2. Click Start Session once. Both screens show the same backend seconds. Four full 10-second countdowns run automatically.
 3. After each verified JPEG, its row fills in both frame columns. The next countdown starts only after saving, frame update and camera readiness. Never click a Nikon shutter manually.
-4. After photo 4, the server verifies originals, generates final JPG/PDF and verifies both files and the manifest before COMPLETE. Inspect the full frame or download JPG / Print PDF from the operator panel.
+4. After photo 4, the server verifies originals, generates final JPG/PDF and verifies both files and the manifest before COMPLETE. The full frame appears on the display; when AUTO_SAVE_DIALOG=1, a native Save As window opens on the laptop. Choose a folder and press Save. JPG/PDF remain in the output folder even if you cancel.
 5. Cancel prevents future shutters; an already exposed image finishes transfer/save. Reset / Retake waits for that work, then removes current temporary captures/drafts. No late callback can repopulate the cleared preview.
 6. Starting a new session preserves earlier final outputs and removes the previous session's temporary originals. Retaking the current COMPLETE session requires explicit deletion confirmation; it deletes that current final output only.
 
@@ -63,7 +74,7 @@ ERROR never retries or resumes an uncertain shutter. Inspect camera and storage 
 
 The original [Frame CAP.pdf](assets/templates/Frame%20CAP.pdf) has two color designs: Coral/Sky (page 1, default) and Blue/Green (page 2). They have slightly different PDF page dimensions. `TEMPLATE_PAGE=2` selects page 2 before backend startup. Exact vector rectangle coordinates and render regeneration are documented in [template configuration](assets/templates/README.md).
 
-Both columns use rows 1–4 for photos 1–4. The same geometry drives progressive JPEG preview and final exports. Cover cropping preserves aspect ratio, normalizes EXIF orientation and uses deterministic centre cropping; automatic face detection is not implemented. PDF keeps the original artwork and print page dimensions; photos use clipping and original JPEG streams unless EXIF rotation requires normalization. Final JPG is 300dpi, quality 95, 4:4:4; originals are never recompressed on save.
+Both columns use rows 1–4 for photos 1–4. The same geometry drives progressive JPEG preview and final exports. Contain fitting preserves the entire photo and its aspect ratio, with white bars when needed, and normalizes EXIF orientation. PDF keeps the original artwork and print page dimensions; photos are fitted without cropping and original JPEG streams are embedded unless EXIF rotation requires normalization. Final JPG is 300dpi, quality 95, 4:4:4; originals are never recompressed on save.
 
 Default storage is `<repository>/storage`. Set `$env:STORAGE_ROOT='D:\PhotoboothStorage'` to change it:
 

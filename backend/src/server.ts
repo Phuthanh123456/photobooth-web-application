@@ -9,8 +9,9 @@ import { randomBytes } from 'node:crypto';
 import { FileSessionStorage, validSessionId } from './storage.js';
 import type { NikonCameraAdapter } from './camera.js';
 import { previewJpeg } from './preview-jpeg.js';
+import type { DesktopSave } from './desktop-save.js';
 
-export function createPhotoboothServer(engine: SessionEngine, imageRoot: string, storage = new FileSessionStorage(imageRoot), camera?:NikonCameraAdapter) {
+export function createPhotoboothServer(engine: SessionEngine, imageRoot: string, storage = new FileSessionStorage(imageRoot), camera?:NikonCameraAdapter, desktopSave?:DesktopSave) {
   const app = express();
   const operatorToken = randomBytes(32).toString('hex');
   const authorized = (cookie?: string) => cookie?.split(';').some(part => part.trim() === `photobooth_operator=${operatorToken}`) ?? false;
@@ -76,6 +77,7 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string,
   const send = (ws: WebSocket, event: ServerEvent) => {
     if (ws.readyState === WebSocket.OPEN) {
       if (ws.bufferedAmount > 1024 * 1024) { ws.terminate(); return; }
+      if(event.type==='STATE') event={...event,state:{...event.state,desktopSave:operators.has(ws) ? desktopSave?.snapshot(event.state.sessionId) : undefined}};
       if (event.type === 'STATE' && !operators.has(ws)) {
         event = { ...event, state: { ...event.state, error:event.state.error ? 'Please wait for assistance' : undefined, outputFolder:undefined, output:undefined,
           captures:event.state.captures.map(c => ({ photo:c.photo, status:c.status })), cameraStatus:undefined, liveViewStatus:undefined } };
@@ -107,8 +109,13 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string,
           switch (command.type) {
             case 'START': engine.start(); break;
             case 'CANCEL': engine.cancel(); break;
+            case 'SAVE_AS':
+              if(!desktopSave) throw new Error('Laptop Save As is disabled');
+              if(!('sessionId' in command) || command.sessionId!==engine.snapshot().sessionId || engine.snapshot().status!=='COMPLETE') throw new Error('Only the current completed session can be saved');
+              desktopSave.request(engine.snapshot().sessionId!);break;
             case 'RESET':
               if (!('sessionId' in command) || command.sessionId !== engine.snapshot().sessionId) throw new Error('Session changed; review it before resetting');
+              if(['queued','choosing','saving'].includes(desktopSave?.snapshot(engine.snapshot().sessionId)?.status ?? '')) throw new Error('Finish or cancel the Save As window before retaking this session');
               void engine.requestReset('confirmDeleteCompleted' in command && command.confirmDeleteCompleted === true); break;
             default: throw new Error('Unknown command');
           }
@@ -119,8 +126,9 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string,
   });
   const broadcast = () => { for (const ws of wss.clients) send(ws, { type: 'STATE', state: engine.snapshot() }); };
   engine.on('state', broadcast);
+  desktopSave?.on('change',broadcast);
   // Heartbeats also detect a silent network loss in the browser; they never advance the engine.
   const heartbeat = setInterval(broadcast, 1000);
-  server.on('close', () => { clearInterval(heartbeat); engine.off('state', broadcast); wss.close(); });
+  server.on('close', () => { clearInterval(heartbeat); engine.off('state', broadcast); desktopSave?.off('change',broadcast); wss.close(); });
   return { server, wss, operatorToken };
 }

@@ -1,6 +1,21 @@
 import { test, expect } from '@playwright/test';
 import sharp from 'sharp';
 
+test('countdown flashes without any Smile, saving or composing card obscuring the camera',async({page})=> {
+  let status='COUNTDOWN',publish=()=>{};
+  await page.routeWebSocket('**/ws?role=display',socket=> {
+    publish=()=>socket.send(JSON.stringify({type:'STATE',state:{sessionId:'display-test',status,camera:'mock',photo:1,remainingSeconds:10,captures:[],busy:true}}));
+    publish();const heartbeat=setInterval(publish,500);socket.onClose(()=>clearInterval(heartbeat));
+  });
+  await page.goto('/display');await expect(page.locator('.countdown')).toHaveText('10');
+  status='CAPTURING';publish();await expect(page.locator('.guidance')).toHaveCount(0);await expect(page.locator('.flash')).toHaveCount(1);
+  for(const next of ['SAVING','COMPOSING']) {
+    status=next;publish();await expect(page.locator('.guidance, .flash')).toHaveCount(0);
+  }
+  status='COUNTDOWN';publish();await expect(page.locator('.countdown')).toHaveText('10');
+  await expect(page.getByRole('button')).toHaveCount(0);
+});
+
 test('Live View updates, hides a lost stream, and reconnects without replaying controls',async({page})=> {
   let available=true,frozen=false,sequence=0,commands=0;
   const jpeg=await sharp({create:{width:64,height:32,channels:3,background:'blue'}}).jpeg().toBuffer();
