@@ -22,7 +22,7 @@ function photoPage(token:string,id:string) {
   :root{color-scheme:light;font-family:system-ui,sans-serif;color:#193b33;background:#f3f5ee}*{box-sizing:border-box}body{margin:0;padding:24px max(20px,env(safe-area-inset-right)) 32px max(20px,env(safe-area-inset-left));text-align:center}main{max-width:620px;margin:auto}header{padding:12px 0 24px}strong{font-size:30px;letter-spacing:-1px}h1{font-size:24px;margin:12px 0 8px}p{font-size:16px;line-height:1.6;margin:8px 0 20px}img{display:block;max-width:100%;width:auto;max-height:70dvh;object-fit:contain;margin:auto;box-shadow:0 8px 28px #193b3326}a{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:12px 28px;margin:24px 0 8px;border-radius:12px;background:#193b33;color:#fff;font-size:18px;font-weight:650;text-decoration:none}a:focus-visible{outline:3px solid #64813b;outline-offset:4px}.note{font-size:14px;color:#52645c}footer{font-size:12px;margin-top:24px;color:#52645c}</style></head><body><main><header><strong>CAP</strong><h1>Ảnh của bạn đã sẵn sàng</h1><p>Lưu lại khoảnh khắc của bạn.</p></header><img src="/s/${token}/image.jpg" alt="Bốn ảnh của bạn trong khung CAP"><a href="/s/${token}/download" download="CAP-${id}.jpg">Tải ảnh JPG</a><p class="note">Trên iPhone, bạn cũng có thể nhấn giữ ảnh và chọn Lưu vào Ảnh.</p><footer>CAP PHOTOBOOTH · ${id.slice(0,8)}</footer></main></body></html>`;
 }
 
-export function createShareRouter(storage:FileSessionStorage,origin?:string) {
+export function createShareRouter(storage:FileSessionStorage,origin?:string,cloudQrUrl?:(token:string)=>string|undefined) {
   const router=express.Router();
   router.use((_req,res,next)=> {
     res.setHeader('Cache-Control','private, no-store');
@@ -32,9 +32,10 @@ export function createShareRouter(storage:FileSessionStorage,origin?:string) {
   });
   router.get('/:token/qr.svg',async(req,res)=> {
     try {
-      if(!origin) {res.sendStatus(503);return;}
+      const url=cloudQrUrl ? cloudQrUrl(req.params.token) : origin ? `${origin}/s/${req.params.token}` : undefined;
+      if(!url) {res.sendStatus(503);return;}
       await storage.readSharedJpeg(req.params.token);
-      const svg=await QRCode.toString(`${origin}/s/${req.params.token}`,{type:'svg',errorCorrectionLevel:'M',margin:4,width:320,color:{dark:'#000000',light:'#ffffff'}});
+      const svg=await QRCode.toString(url,{type:'svg',errorCorrectionLevel:'M',margin:4,width:320,color:{dark:'#000000',light:'#ffffff'}});
       res.type('image/svg+xml').send(svg);
     } catch {res.status(404).send('Photo link not found');}
   });

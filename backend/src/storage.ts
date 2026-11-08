@@ -37,6 +37,7 @@ async function atomic(target: string, bytes: Uint8Array | string) {
   await writeFile(`${target}.tmp`, bytes); await rename(`${target}.tmp`, target);
 }
 export class FileSessionStorage implements SessionStorage {
+  beforeDeleteCompleted?: (id:string,token:string)=>Promise<void>;
   readonly outputFolder: string;
   readonly root: string;
   constructor(root: string, readonly templatePage = 1) { this.root = path.resolve(root); this.outputFolder = path.join(this.root, 'output'); template(templatePage); }
@@ -169,6 +170,7 @@ export class FileSessionStorage implements SessionStorage {
     if (deleteCompleted || !completed) {
       const manifest=await readFile(this.outputFile(id,'manifest'),'utf8').then(JSON.parse).catch(error=>{if(error.code==='ENOENT') return null;throw error;});
       if(manifest?.shareToken && validShareToken(manifest.shareToken)) {
+        await this.beforeDeleteCompleted?.(id,manifest.shareToken);
         const file=this.shareFile(manifest.shareToken);
         const grant=await readFile(file,'utf8').then(JSON.parse).catch(error=>{if(error.code==='ENOENT')return null;throw error;});
         if(grant && grant.sessionId!==id) throw new Error('Refusing to revoke another session photo link');

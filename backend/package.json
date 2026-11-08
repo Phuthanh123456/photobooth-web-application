@@ -1,1 +1,31 @@
-{"name":"@photobooth/backend","private":true,"type":"module","scripts":{"dev":"tsx watch src/index.ts","start":"tsx src/index.ts","build":"tsc --noEmit","test":"vitest run","camera:setup":"tsx src/nikon/hardware-cli.ts --setup","camera:probe":"tsx src/nikon/hardware-cli.ts --probe","camera:test":"tsx src/nikon/hardware-cli.ts --capture"},"dependencies":{"@photobooth/shared":"*","express":"^5.1.0","pdf-lib":"^1.17.1","qrcode":"^1.5.4","sharp":"^0.35.5","ws":"^8.18.3"},"devDependencies":{"@types/express":"^5.0.3","@types/node":"^24.10.0","@types/qrcode":"^1.5.6","@types/ws":"^8.18.1","jsqr":"^1.4.0","tsx":"^4.20.6","vitest":"^4.1.12"}}
+{
+  "name": "@photobooth/backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "camera:setup": "tsx src/nikon/hardware-cli.ts --setup",
+    "camera:probe": "tsx src/nikon/hardware-cli.ts --probe",
+    "camera:test": "tsx src/nikon/hardware-cli.ts --capture"
+  },
+  "dependencies": {
+    "@photobooth/shared": "*",
+    "express": "^5.1.0",
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.35.5",
+    "ws": "^8.18.3",
+    "tsx": "^4.20.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.10.0",
+    "@types/qrcode": "^1.5.6",
+    "@types/ws": "^8.18.1",
+    "jsqr": "^1.4.0",
+    "vitest": "^4.1.12"
+  }
+}

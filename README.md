@@ -1,5 +1,11 @@
 # CAP · Nikon Z30 photobooth
 
+## Bàn giao sang laptop khác / hotspot 4G–5G
+
+Xem [hướng dẫn bàn giao tiếng Việt](HANDOFF_VI.md). `npm run event:package` tạo ZIP Windows x64 kèm Node và giao diện đã build, không kèm ảnh, mật khẩu, báo cáo camera hay SDK Nikon. Máy nhận chạy **Setup Camera.cmd** một lần, **Configure Cloud.cmd** sau khi tạo tài nguyên cloud, rồi dùng **Start Photobooth.cmd** / **Stop Photobooth.cmd**. Mặc định giao diện event là 5180, backend loopback 3010; cấu hình này độc lập với cổng phát triển bên dưới. **Test Mock.cmd** không chụp camera thật.
+
+Cloud đã có mã tích hợp Supabase, hàng đợi bền vững và trang khách Render Static Site (`render.yaml`, `cloud/guest`, `cloud/storage.sql`). Cần tạo tài nguyên bằng tài khoản của đội rồi nhập cấu hình riêng; workspace chưa có tài khoản cloud được kết nối nên chưa có deployment Supabase/Render thật. QR cloud chỉ hiện sau khi đọc lại đúng SHA-256 của JPG. Mất mạng không chụp lại; chỉ thử tải ảnh lên lại. Chế độ Quick Tunnel cũ vẫn dùng được khi chưa cấu hình cloud, với các giới hạn bên dưới.
+
 Current real-camera validation setup: laptop **http://localhost:5176/operator**, display **http://192.168.1.6:5176/display**, loopback backend 3004. Port 5173 may still be a separate MOCK app. The operator confirmed real Live View in **Safari iPhone**; no physical iPad is available yet. Single-photo and four-photo Z30 capture/export have passed. Physical iPad, disruptive USB/power tests and actual printing remain pending.
 
 ## QR downloads over 4G/5G (2026-11-08)

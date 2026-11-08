@@ -1,0 +1,8 @@
+{
+  "projectUrl": "https://YOUR_PROJECT_REF.supabase.co",
+  "anonKey": "SUPABASE_PUBLISHABLE_OR_ANON_KEY_NOT_SERVICE_ROLE",
+  "email": "dedicated-uploader@example.org",
+  "password": "SET_A_UNIQUE_UPLOADER_PASSWORD",
+  "bucket": "cap-photos",
+  "guestOrigin": "https://YOUR_GUEST_SITE.onrender.com"
+}

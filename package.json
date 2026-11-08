@@ -1,1 +1,35 @@
-{"name":"nikon-photobooth","private":true,"workspaces":["frontend","backend","shared"],"scripts":{"dev":"concurrently -k -n backend,frontend \"npm run dev -w backend\" \"npm run dev -w frontend\"","dev:backend":"npm run dev -w backend","dev:frontend":"npm run dev -w frontend","build":"npm run build -w shared && npm run build -w backend && npm run build -w frontend","test":"npm run test -w backend","test:e2e":"npm run test:e2e -w frontend","camera:build":"powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-native.ps1","camera:setup":"npm run camera:setup -w backend","camera:probe":"npm run camera:probe -w backend","camera:test":"npm run camera:test -w backend","camera:test:native":"powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-native.ps1 -RunTests","share:install":"python tools/install-cloudflared.py","share:start":"powershell -NoProfile -ExecutionPolicy Bypass -File tools/start-share-tunnel.ps1","share:stop":"powershell -NoProfile -ExecutionPolicy Bypass -File tools/stop-share-tunnel.ps1"},"devDependencies":{"concurrently":"^9.2.1","typescript":"^5.9.3"},"type":"module"}
+{
+  "name": "nikon-photobooth",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n backend,frontend \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "build": "npm run build -w shared && npm run build -w backend && npm run build -w frontend",
+    "test": "npm run test -w backend",
+    "test:e2e": "npm run test:e2e -w frontend",
+    "camera:build": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-native.ps1",
+    "camera:setup": "npm run camera:setup -w backend",
+    "camera:probe": "npm run camera:probe -w backend",
+    "camera:test": "npm run camera:test -w backend",
+    "camera:test:native": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-native.ps1 -RunTests",
+    "share:install": "python tools/install-cloudflared.py",
+    "share:start": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/start-share-tunnel.ps1",
+    "share:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/stop-share-tunnel.ps1",
+    "event:start": "node tools/event-runner.mjs start",
+    "event:stop": "node tools/event-runner.mjs stop",
+    "event:mock": "node tools/event-runner.mjs mock",
+    "event:package": "node tools/package-event.mjs",
+    "test:deployment": "node --test tools/test/*.test.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
+  },
+  "type": "module"
+}

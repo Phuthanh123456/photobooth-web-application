@@ -19,7 +19,7 @@ function App() {
   if (display) return <main className={`display${status === 'COMPLETE' ? ' is-complete' : ''}`}>
     <header><span className="wordmark">CAP <small>PHOTOBOOTH</small></span><span className="badge">{mock ? 'MOCK · TEST PREVIEW' : 'NIKON Z30'}</span><span className="connection">{connected ? 'Connected' : 'Reconnecting'}</span></header>
     {status === 'COMPLETE' ? <section className="completed-display" aria-label="Completed photo strip">
-      <div className="completed-heading"><p className="eyebrow">MAKE A MEMORY</p><h1>Your photos are ready!</h1><p>All four photos, together in your frame.</p></div>
+      <div className="completed-heading"><p className="eyebrow">MAKE A MEMORY</p><h1>Your photos are ready!</h1><p>All four photos, together in your frame.</p>{state?.cloudUpload && state.cloudUpload.status!=='ready' && <p role="status">{state.cloudUpload.status==='waiting' ? 'Đang chờ Internet để tạo QR. Ảnh đã được lưu.' : 'Đang chuẩn bị mã QR tải ảnh…'}</p>}</div>
       <div className={`completed-content${state?.share ? ' has-qr' : ''}`}>
         <div className="completed-artwork-wrap">{state?.sessionId && <img className="completed-artwork" src={`/media/${state.sessionId}/frame`} alt="Your four completed photos in the Frame CAP"/>}</div>
         {state?.share && <SessionQr key={state.share.url} share={state.share}/>}
@@ -48,6 +48,7 @@ function App() {
       <div className="error-region" role="alert">{(error || state?.error) && <p className="error">{error || state?.error}</p>}</div>
       {state?.desktopSave && <DesktopSaveNotice state={state.desktopSave} reopen={()=>command('SAVE_AS')} disabled={!connected || pending || status!=='COMPLETE'}/>}
       {status==='COMPLETE' && state?.share && <p className="storage-note"><a href={state.share.url} target="_blank" rel="noreferrer">Open guest photo download ↗</a></p>}
+      {status==='COMPLETE' && state?.cloudUpload && <p className="storage-note" role="status">{state.cloudUpload.status==='ready' ? 'Cloud JPG verified. Guest QR is ready.' : state.cloudUpload.status==='waiting' ? 'Cloud upload waiting. Check Internet and cloud setup; automatic transfer retry is enabled. Local JPG is safe.' : 'Uploading the finished JPG. QR appears after cloud verification.'}</p>}
       <div className="storage-note">{!mock && <p>Live View: {state?.liveViewStatus ?? 'Unavailable'}</p>}<span className="eyebrow">OUTPUT FOLDER</span><p>{state?.outputFolder ?? 'storage/output'}</p>{state?.output && <div><a href={state.output.jpgUrl} download>Download JPG</a> · <a href={state.output.pdfUrl} download>Print PDF</a></div>}</div>
     </aside><section className="frame-panel"><div className="panel-heading"><div><p className="eyebrow">YOUR DOUBLE STRIP</p><h2>{status === 'COMPLETE' ? 'Ready to keep.' : 'A little moment, twice.'}</h2></div><span className="badge">{saved} / 4 PHOTOS</span></div><div className="frame-stage"><img src={frame} alt="Progressive Frame CAP double strip"/></div><div className="frame-caption"><span>Frame CAP · {currentTemplate.name}</span><span>Photos fill each frame</span></div></section></div>
     <footer><span>10 SECONDS PER PHOTO · SERVER SYNCHRONIZED</span><span className="session-id">{state?.sessionId ?? 'No session started'}</span></footer>

@@ -9,6 +9,8 @@ if(Test-Path -LiteralPath $pidFile) {
   $previousId=[int](Get-Content -LiteralPath $pidFile -Raw)
   $previous=Get-Process -Id $previousId -ErrorAction SilentlyContinue
   if($previous -and $previous.Path -eq $binary) {
+    $commandLine=(Get-CimInstance Win32_Process -Filter "ProcessId = $previousId").CommandLine
+    if($commandLine -notmatch ('http://127\.0\.0\.1:{0}(?:\s|"|$)' -f $Port)) {throw 'A different CAP share tunnel is already using this workspace. Stop that event first; no existing tunnel was changed.'}
     if(Test-Path -LiteralPath $originFile) {Get-Content -LiteralPath $originFile;exit 0}
     throw 'A share tunnel is already starting. Wait for its origin file.'
   }

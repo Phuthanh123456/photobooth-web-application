@@ -33,6 +33,7 @@ export interface SessionState {
   outputFolder?: string;
   output?: { jpgUrl: string; pdfUrl: string; manifestUrl: string; sharePath?:string };
   share?: { url:string; qrImagePath:string };
+  cloudUpload?: {status:'uploading'|'waiting'|'ready'};
   desktopSave?: DesktopSaveState;
 }
 export interface DesktopSaveState {
