@@ -1,6 +1,6 @@
 # Project operating and implementation rules
 
-- After countdown, CAPTURING/SAVING/COMPOSING must keep camera content unobstructed by Smile/saving guidance cards; retain the capture flash. Fit the full photo inside its slot without cropping or stretching. The intended replacement sticker PDF is pending: inspect it when supplied and preserve its artwork/stickers above the photos instead of overwriting them.
+- After countdown, CAPTURING/SAVING/COMPOSING must keep camera content unobstructed by Smile/saving guidance cards; retain the capture flash. Fit the full photo inside its slot without cropping or stretching. The active sticker PNG has native alpha: preserve its bytes and draw it above photos. Use the measured clear contentBox so sticker corners cannot obscure photo content. White margins are acceptable to preserve the full image.
 - Windows Save As may open automatically only after verified COMPLETE. Save a verified copy, remember the successful destination folder, preserve final output on cancellation/error, and never send desktop paths or Save As controls to display clients. Normal automated tests inject the dialog and must not open real Windows prompts.
 
 - Discover Nikon devices only when establishing the SDK connection. Do not call EnumDevices from connected-body readiness, preview transitions or capture: use DeviceReady and propagate its busy/disconnected errors. Preview recovery may restart remote Live View, never replay a shutter. Run the native SDK regression after native changes, and revalidate changed fingerprints before enabling real sessions.
@@ -13,7 +13,7 @@
 - Backend owns state, readiness and timing. Browser timers only monitor connection/reconnect; they never advance a countdown or trigger capture.
 - Never overlap camera commands/captures. Never automatically retry an uncertain shutter. Native faults/timeouts latch the real adapter until manual reconciliation/restart.
 - Save, full JPEG decode/hash verification and camera readiness precede the next countdown. Only verified images fill frame slots. COMPLETE additionally requires verified final JPG, PDF and output manifest.
-- Use the supplied Frame CAP PDF and extracted geometry, not a generic replacement. Each photo appears in both columns of its corresponding row. No stretching; preserve original artwork and print page dimensions.
+- Use the supplied Frame CAP.png and measured alpha-opening geometry, not a generic replacement. Each photo appears in both columns of its corresponding row, using each column's independent coordinates. Preserve original artwork and source-declared physical dimensions. The older PDF designs are retired.
 - MOCK and REAL_NIKON are explicit startup modes. Mock emits labeled valid JPEGs. Never silently fall back from real to mock or present fake SDK data as hardware evidence.
 - Real four-photo sessions require a passed, fingerprint-matching single-photo hardware report. The single-photo CLI requires the operator’s exact interactive confirmation before any shutter command. Do not execute physical shutters based on preselected/unanswered UI options.
 - Close NX Tether/other camera clients before SDK access. Keep SDK files external, respect Nikon licensing, never commit or redistribute proprietary binaries, headers, samples or manuals.

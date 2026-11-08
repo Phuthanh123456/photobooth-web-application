@@ -1,12 +1,19 @@
 # Milestones
 
+## Sticker PNG installation (completed, 2026-11-08)
+
+- Imported Frame CAP.png unchanged; measured eight native transparent openings and clear 3:2 photo rectangles avoiding sticker overlap. Both columns receive photos 1-4 in order without crop/stretch.
+- JPG/PDF draw photos underneath the original RGBA artwork. Replaced active old PDF/second-page assets; old completed outputs preserved. Added artwork cache keys to the operator's empty preview.
+- Source 2335x3289 at 399.9738dpi; output JPG 1752x2467 at 300dpi; PDF retains declared physical size. Render checks matched all eight JPG/PDF slots.
+- 60 backend tests passed; the four prior browser checks and a dedicated sticker-preview cache test passed; builds passed. No new real shutters were sent. Native validation and automatic Save As remain enabled.
+
 ## 2026-11-08 requested changes
 
 - Implemented unobstructed camera content during capture/save/composition, retaining countdown and flash.
 - Implemented full-photo contain fitting in JPG/PDF; raster checks preserved both edges of a wide image.
 - Implemented automatic native Windows Save As after COMPLETE, remembered folder, verified copy, overwrite/cancel/error handling, operator-only retry and privacy. The operator completed an actual save of an existing final with zero new shutters.
 - Restarted REAL_NIKON services on 5176/3004 with the existing valid camera report; Z30 ready and Live View streaming.
-- Deferred sticker artwork replacement at the operator's request: the supplied PDF duplicated the old file; correct replacement will be provided later.
+- The initially deferred sticker replacement was completed later with the correct RGBA PNG, as recorded above.
 
 ## Fourth-photo SDK correction (completed and revalidated)
 

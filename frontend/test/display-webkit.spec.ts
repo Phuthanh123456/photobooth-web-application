@@ -1,6 +1,14 @@
 import { test, expect } from '@playwright/test';
 import sharp from 'sharp';
 
+test('operator loads the supplied sticker frame with an artwork cache key',async({page})=> {
+  await page.goto('/operator');await expect(page.getByText('Connected',{exact:true})).toBeVisible();
+  const frame=page.getByRole('img',{name:'Progressive Frame CAP double strip'});
+  await expect(frame).toHaveAttribute('src',/page-1\.png\?v=f25c5f60/);
+  await expect.poll(()=>frame.evaluate(img=>(img as HTMLImageElement).naturalWidth)).toBe(2335);
+  await expect(page.getByText('Frame CAP · CAP / Victory stickers')).toBeVisible();
+});
+
 test('countdown flashes without any Smile, saving or composing card obscuring the camera',async({page})=> {
   let status='COUNTDOWN',publish=()=>{};
   await page.routeWebSocket('**/ws?role=display',socket=> {

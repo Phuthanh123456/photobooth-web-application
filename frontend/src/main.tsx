@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { useSession } from './useSession';
 import { LiveView } from './LiveView';
 import { DesktopSaveNotice } from './DesktopSaveNotice';
+import frameGeometry from '../../assets/templates/geometry.json';
 import './styles.css';
 
 function App() {
@@ -11,7 +12,8 @@ function App() {
   const saved = state?.captures.filter(c => c.status === 'saved').length ?? 0;
   const mock = state?.camera !== 'nikon';
   const message = !connected ? 'Reconnecting…' : status === 'COMPLETE' ? 'Your photos are ready!' : status === 'COUNTDOWN' ? `Photo ${state?.photo} of 4` : status === 'CAPTURING' ? 'Smile!' : status === 'SAVING' || status === 'COMPOSING' ? 'Saving your photo…' : status === 'ERROR' ? 'Please wait for assistance' : status === 'CANCELLED' ? 'Session cancelled' : 'Get Ready';
-  const frame = state?.previewUrl ?? `/templates/page-${state?.templatePage ?? 1}.png`;
+  const currentTemplate=frameGeometry.pages.find(page=>page.page===(state?.templatePage ?? 1)) ?? frameGeometry.pages[0];
+  const frame = state?.previewUrl ?? `/templates/page-${currentTemplate.page}.png?v=${currentTemplate.sourceSha256}`;
   const showGuidance = !connected || !['CAPTURING','SAVING','COMPOSING'].includes(status);
   if (display) return <main className={`display${status === 'COMPLETE' ? ' is-complete' : ''}`}>
     <header><span className="wordmark">CAP <small>PHOTOBOOTH</small></span><span className="badge">{mock ? 'MOCK · TEST PREVIEW' : 'NIKON Z30'}</span><span className="connection">{connected ? 'Connected' : 'Reconnecting'}</span></header>
@@ -42,7 +44,7 @@ function App() {
       <div className="error-region" role="alert">{(error || state?.error) && <p className="error">{error || state?.error}</p>}</div>
       {state?.desktopSave && <DesktopSaveNotice state={state.desktopSave} reopen={()=>command('SAVE_AS')} disabled={!connected || pending || status!=='COMPLETE'}/>}
       <div className="storage-note">{!mock && <p>Live View: {state?.liveViewStatus ?? 'Unavailable'}</p>}<span className="eyebrow">OUTPUT FOLDER</span><p>{state?.outputFolder ?? 'storage/output'}</p>{state?.output && <div><a href={state.output.jpgUrl} download>Download JPG</a> · <a href={state.output.pdfUrl} download>Print PDF</a></div>}</div>
-    </aside><section className="frame-panel"><div className="panel-heading"><div><p className="eyebrow">YOUR DOUBLE STRIP</p><h2>{status === 'COMPLETE' ? 'Ready to keep.' : 'A little moment, twice.'}</h2></div><span className="badge">{saved} / 4 PHOTOS</span></div><div className="frame-stage"><img src={frame} alt="Progressive Frame CAP double strip"/></div><div className="frame-caption"><span>Frame CAP · {state?.templatePage === 2 ? 'Blue / Green' : 'Coral / Sky'}</span><span>Full photo · no crop</span></div></section></div>
+    </aside><section className="frame-panel"><div className="panel-heading"><div><p className="eyebrow">YOUR DOUBLE STRIP</p><h2>{status === 'COMPLETE' ? 'Ready to keep.' : 'A little moment, twice.'}</h2></div><span className="badge">{saved} / 4 PHOTOS</span></div><div className="frame-stage"><img src={frame} alt="Progressive Frame CAP double strip"/></div><div className="frame-caption"><span>Frame CAP · {currentTemplate.name}</span><span>Full photo · no crop</span></div></section></div>
     <footer><span>10 SECONDS PER PHOTO · SERVER SYNCHRONIZED</span><span className="session-id">{state?.sessionId ?? 'No session started'}</span></footer>
     <span className="sr-only" role="status">{connected ? `Session ${status}. Photo ${state?.photo ?? 0} of 4.` : 'Connection lost. Waiting for server.'}</span>
   </main>;

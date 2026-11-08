@@ -1,5 +1,15 @@
 # Implementation report — 2026-11-07
 
+## Sticker PNG installation (current, 2026-11-08)
+
+Installed the operator's actual Frame CAP.png unchanged: 2335x3289 RGBA pixels at 399.9738dpi, SHA-256 f25c5f60b8cc632ccaa21200af61ab9327cbf313f7bd4a2e8feb2d6c0216d836. Native transparency defines eight openings. tools/inspect-frame.py measures each column independently and derives maximum clear 3:2 rectangles with two-pixel clearance; full photos are contained within these safe rectangles so no photo content is cropped, stretched or hidden by sticker edges. White margins are intentional. JPG and PDF draw the original artwork last, preserving sticker/border pixels. The retired PDF/page-2 artwork was removed from active assets; prior completed photos/exports remain intact.
+
+JPG output is 1752x2467 at 300dpi; PDF is 420.327531x592.058780pt based on source metadata and embeds original RGBA art plus original JPEGs (except required EXIF normalization). Empty UI previews carry the source SHA in their URL and show the actual template name. A four-photo mock composition was visually inspected in both JPG and rendered PDF; all eight slot color samples matched. Private evidence: storage/hardware-test/sticker-frame-composition.json; mock previews are under .local. This change issued zero real shutter commands and changed no Nikon validation fingerprints.
+
+Checks: 60 backend tests passed, including unchanged source hash, all safe rectangles fully transparent, mapping/empty rows, sticker retention and wide-photo edge preservation. The four existing Chromium/WebKit browser checks and an additional targeted artwork cache-key check passed. Full build and subsequent frontend build passed. REAL_NIKON on 3004 is hardware validated with fresh preview; frontend 5176 serves the new frame. Automatic Windows Save As remains enabled.
+
+The earlier pending-sticker notes below are historical and are resolved by this installation.
+
 ## Capture display, full-photo fitting and native Save As (2026-11-08)
 
 Implemented per the operator's new request: hide all guidance cards during CAPTURING/SAVING/COMPOSING while retaining authoritative countdown and capture flash; retain large final-frame display. Both JPEG and PDF now fit the entire photo within its slot without cropping/stretching. Rendered PDF and JPEG regression artifacts retained both colored edges of a deliberately wide fixture.
