@@ -1,5 +1,7 @@
 # Project operating and implementation rules
 
+- Each verified four-photo COMPLETE gets its own random persistent QR grant for the final framed JPEG. Preserve earlier links when starting a new session; revoke a link when its completed output is explicitly deleted. Guest pages must not expose original photos, manifests, PDF or operator/SDK controls. Internet tunnels point only to the dedicated share-only listener, never to the operator/frontend/backend service. Temporary tunnel hostnames stop working when their tunnel is stopped; document this instead of claiming permanent URLs.
+
 - After countdown, CAPTURING/SAVING/COMPOSING must keep camera content unobstructed by Smile/saving guidance cards; retain the capture flash. Fill each complete photo opening using centered cover fitting with aspect ratio preserved. The operator explicitly allows sticker overlap and edge cropping to fill the opening: do not shrink/reposition photos into safe rectangles or add white margins to avoid stickers. Draw the unchanged RGBA frame above the full photo underlays, including beneath sticker corners and rounded/antialiased edges.
 - Windows Save As may open automatically only after verified COMPLETE. Save a verified copy, remember the successful destination folder, preserve final output on cancellation/error, and never send desktop paths or Save As controls to display clients. Normal automated tests inject the dialog and must not open real Windows prompts.
 

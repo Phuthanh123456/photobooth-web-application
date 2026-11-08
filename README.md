@@ -2,6 +2,25 @@
 
 Current real-camera validation setup: laptop **http://localhost:5176/operator**, display **http://192.168.1.6:5176/display**, loopback backend 3004. Port 5173 may still be a separate MOCK app. The operator confirmed real Live View in **Safari iPhone**; no physical iPad is available yet. Single-photo and four-photo Z30 capture/export have passed. Physical iPad, disruptive USB/power tests and actual printing remain pending.
 
+## QR downloads over 4G/5G (2026-11-08)
+
+After a verified four-photo COMPLETE, the display shows the finished frame on the left and its unique QR on the right. Scanning opens a mobile guest page with the final framed JPG and a download button. iPhone users can also long-press the image to save it to Photos. No shared Wi-Fi is required when the public tunnel is running. The operator confirmed downloading the correct image over 4G/5G.
+
+Every session gets a cryptographically random 192-bit grant, persisted with its completed-output metadata. Earlier links remain usable when a new session starts or the backend restarts, provided the same public origin remains online. Confirmed deletion/retake of a completed session revokes its link. Only the matching verified final JPG is shared: no originals, PDF, manifest, operator bootstrap, Live View or camera controls are served by the public listener.
+
+The current Internet connection uses a **temporary Cloudflare Quick Tunnel**, forwarded only to the dedicated loopback photo service on port 3006. Keep the laptop online and tunnel running while guests download. Stopping the tunnel invalidates its hostname; starting a new Quick Tunnel changes the hostname, so already scanned QR URLs from that old hostname stop working. A stable public HTTPS origin can be supplied via PUBLIC_SHARE_ORIGIN with a named tunnel/custom domain later. Quick Tunnels are a temporary development facility without uptime guarantees, as documented by [Cloudflare](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/).
+
+Install the official checksum-verified tunnel binary once, then start it for each run:
+
+```powershell
+npm run share:install
+npm run share:start
+$env:PUBLIC_SHARE_ORIGIN=(Get-Content .local/public-share-origin.txt -Raw).Trim()
+$env:SHARE_PORT='3006'
+```
+
+Run the backend with those variables and the real-mode settings below. Keep the public tunnel pointed at 3006. `npm run share:stop` stops the recorded workspace tunnel after checking its executable path; stopping the backend also closes the photo listener. Install metadata, tunnel PID/logs and public origin stay ignored under .local. For a preview of an existing completed session, RESTORE_COMPLETED_SESSION can be set to its UUID at backend startup; this verifies existing files and does not issue a shutter or reopen Save As. Leave it unset for normal IDLE startup.
+
 ## Current sticker frame (2026-11-08)
 
 The supplied [Frame CAP.png](assets/templates/Frame%20CAP.png) is installed. Original RGBA bytes are preserved, with full photo underlays drawn first and the frame/stickers drawn last. All four photos appear twice, top-to-bottom in the two columns' actual openings. Centered cover fitting preserves aspect ratio and fills each complete opening, including beneath sticker corners. Excess edges may be cropped; stickers are allowed to cover photos. The operator explicitly removed the earlier safe-rectangle/white-margin policy. The older two-page artwork is no longer active. Empty previews use an artwork hash in their URL to avoid stale browser caching.
@@ -41,6 +60,9 @@ $env:NIKON_VALIDATION_FILE='D:\PhuThanh\Code\photobooth\storage\hardware-test\28
 $env:BACKEND_PORT='3004'
 $env:FRONTEND_PORT='5176'
 $env:AUTO_SAVE_DIALOG='1'
+npm run share:start
+$env:PUBLIC_SHARE_ORIGIN=(Get-Content .local/public-share-origin.txt -Raw).Trim()
+$env:SHARE_PORT='3006'
 npm run dev
 ```
 
@@ -70,7 +92,7 @@ MOCK produces labeled, valid 1800×1200 JPEG test images. Its preview is clearly
 1. Open `/operator` using localhost on the laptop. Open `/display` on the iPad. Wait for Connected.
 2. Click Start Session once. Both screens show the same backend seconds. Four full 10-second countdowns run automatically.
 3. After each verified JPEG, its row fills in both frame columns. The next countdown starts only after saving, frame update and camera readiness. Never click a Nikon shutter manually.
-4. After photo 4, the server verifies originals, generates final JPG/PDF and verifies both files and the manifest before COMPLETE. The full frame appears on the display; when AUTO_SAVE_DIALOG=1, a native Save As window opens on the laptop. Choose a folder and press Save. JPG/PDF remain in the output folder even if you cancel.
+4. After photo 4, the server verifies originals, generates final JPG/PDF and verifies both files and the manifest before COMPLETE. The frame and that session's QR appear on the display. When AUTO_SAVE_DIALOG=1, a native Save As window opens on the laptop. Choose a folder and press Save. JPG/PDF remain in the output folder even if you cancel.
 5. Cancel prevents future shutters; an already exposed image finishes transfer/save. Reset / Retake waits for that work, then removes current temporary captures/drafts. No late callback can repopulate the cleared preview.
 6. Starting a new session preserves earlier final outputs and removes the previous session's temporary originals. Retaking the current COMPLETE session requires explicit deletion confirmation; it deletes that current final output only.
 
@@ -94,6 +116,8 @@ storage/
     photobooth-<UUID>-final.jpg
     photobooth-<UUID>-final.pdf
     photobooth-<UUID>-manifest.json
+  shares/
+    <random-token>.json
   hardware-test/<UUID>/
     original.jpg       # only after a confirmed successful hardware capture
     result.json
@@ -101,7 +125,7 @@ storage/
 
 Failed/uncertain native transfers remain under `temp/bridge-...` for operator inspection. An explicit reset of the current session closes the SDK process and waits for exit before removing its registered staging directories. The real adapter remains fault-locked until reconciliation/restart. Orphan staging folders from an earlier process require manual inspection/cleanup. Legacy M1 files under `backend/data` or `data` are left untouched. Generated captures, deliverables, hardware reports and native binaries are excluded from Git.
 
-There is no public static route for temporary storage. Original thumbnails, manifests and final downloads require a per-process operator capability cookie. Vite issues it through a loopback-only bootstrap route; WebSocket controls require that cookie plus a localhost Origin. The display connection is read-only even if it sends operator commands. Display snapshots redact paths and technical errors. Only the current frame composition and actual Live View are available to the display on the trusted LAN. This is a local development deployment, not a public authentication/hosting system. Do not expose the backend or use `vite preview` as a production server: the operator bootstrap and proxies are provided by the dev server.
+There is no public static route for temporary storage. Original thumbnails, manifests and operator final downloads require a per-process operator capability cookie. Vite issues it through a loopback-only bootstrap route; WebSocket controls require that cookie plus a localhost Origin. The display remains read-only and receives no storage paths. Guest downloads use a separate random-token route under /s, limited to the verified final JPEG. Internet traffic reaches a separate share-only HTTP listener, with no operator/bootstrap/WebSocket/SDK routes. Backend 3004 remains loopback-only and frontend 5176 serves the trusted LAN; the public tunnel points only at 3006. Vite proxies only the /s/ segment, preserving /src module routes. Do not use vite preview for the operator app: bootstrap/proxies are supplied by the dev server.
 
 ## Nikon SDK and native bridge
 

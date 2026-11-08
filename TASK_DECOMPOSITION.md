@@ -1,5 +1,13 @@
 # Milestones
 
+## Internet QR downloads (completed, 2026-11-08)
+
+- Added right-side per-session QR on COMPLETE, with tablet/phone responsive layout and no display controls. Guest page supports framed JPG download and iPhone long-press saving.
+- Persisted random grants with verified outputs; old links survive next sessions/backend restarts, explicit completed deletion revokes them, corrupt/incomplete outputs are rejected.
+- Added a dedicated photo-only public listener on loopback 3006 and an official checksum-verified Cloudflare Quick Tunnel, exposing no operator/bootstrap/WebSocket/Live View routes. Documented temporary hostname/laptop-online limits and stable-origin configuration.
+- Restored the existing completed display with a share grant without issuing shutters or reopening Save As. Public download matched the final JPEG hash; displayed QR decoded correctly. The operator confirmed the correct download over 4G/5G.
+- 72 backend tests, six Chromium/WebKit browser tests and build passed; zero dependency audit findings. QR uniqueness, decoding, byte matching, persistence/revocation, public-route isolation and responsive layouts were tested.
+
 ## Full-opening photo correction (2026-11-08)
 
 - Removed the safe rectangles per the operator's explicit correction. Fill each complete opening with centered cover and a two-pixel underlay bleed; sticker overlap and edge cropping are allowed, aspect ratio is preserved.

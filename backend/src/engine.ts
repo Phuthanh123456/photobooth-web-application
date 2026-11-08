@@ -47,6 +47,11 @@ export class SessionEngine extends EventEmitter {
     if (this.state.busy || state.status !== 'ERROR') throw new Error('Invalid restart recovery state');
     this.state = { ...state, busy:false, status:'ERROR', countdownDeadlineMs:null };
   }
+  restoreCompleted(state:SessionState) {
+    if(this.state.busy || state.status!=='COMPLETE' || state.busy || !state.output || state.captures.length!==4 || ![1,2,3,4].every(photo=>state.captures.some(c=>c.photo===photo && c.status==='saved'))) throw new Error('Invalid completed display state');
+    // Startup display restoration only: no state event, Save As dialog or shutter.
+    this.state=structuredClone({...state,busy:false,countdownDeadlineMs:null,remainingSeconds:0});
+  }
   requestReset(confirmDeleteCompleted = false): Promise<void> {
     if (this.resetting) throw new Error('Reset already in progress');
     const completed = this.state.status === 'COMPLETE';

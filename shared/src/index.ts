@@ -31,7 +31,8 @@ export interface SessionState {
   liveViewUrl?: string;
   liveViewStatus?: string;
   outputFolder?: string;
-  output?: { jpgUrl: string; pdfUrl: string; manifestUrl: string };
+  output?: { jpgUrl: string; pdfUrl: string; manifestUrl: string; sharePath?:string };
+  share?: { url:string; qrImagePath:string };
   desktopSave?: DesktopSaveState;
 }
 export interface DesktopSaveState {

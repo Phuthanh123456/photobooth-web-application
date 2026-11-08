@@ -1,5 +1,34 @@
 import { test, expect } from '@playwright/test';
 import sharp from 'sharp';
+import QRCode from 'qrcode';
+import {readFile} from 'node:fs/promises';
+
+test('completed frame and scannable QR fit beside each other on iPad and stack on phones',async({page},testInfo)=> {
+  const id='77777777-7777-4777-8777-777777777777',token='x'.repeat(32),url=`https://photos.example.test/s/${token}`;
+  const frame=await readFile(new URL('../../assets/templates/page-1.png',import.meta.url));
+  const svg=await QRCode.toString(url,{type:'svg',width:320,margin:4});
+  await page.route('**/media/*/frame',route=>route.fulfill({contentType:'image/png',body:frame}));
+  await page.route('**/s/*/qr.svg*',route=>route.fulfill({contentType:'image/svg+xml',body:svg}));
+  await page.routeWebSocket('**/ws?role=display',socket=> {
+    const send=()=>socket.send(JSON.stringify({type:'STATE',state:{status:'COMPLETE',camera:'mock',sessionId:id,photo:4,captures:[],busy:false,share:{url,qrImagePath:`/s/${token}/qr.svg`}}}));
+    send();const heartbeat=setInterval(send,500);socket.onClose(()=>clearInterval(heartbeat));
+  });
+  for(const size of [{width:1024,height:768},{width:768,height:1024},{width:390,height:844}]) {
+    await page.setViewportSize(size);await page.goto('/display');
+    const qr=page.getByRole('img',{name:'Mã QR tải ảnh của lượt chụp này'});await expect(qr).toBeVisible();
+    await expect.poll(()=>qr.evaluate(img=>(img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    const image=await page.locator('.completed-artwork').boundingBox(),card=await page.locator('.session-qr').boundingBox();
+    expect(image).not.toBeNull();expect(card).not.toBeNull();
+    if(size.width>640) {
+      expect(card!.x).toBeGreaterThan(image!.x+image!.width);
+      expect(card!.y+card!.height).toBeLessThanOrEqual(size.height+1);
+      expect(image!.y+image!.height).toBeLessThanOrEqual(size.height+1);
+    } else expect(card!.y).toBeGreaterThan(image!.y+image!.height);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await expect(page.getByRole('button')).toHaveCount(0);
+    await page.screenshot({path:testInfo.outputPath(`qr-${size.width}.png`),fullPage:true});
+  }
+});
 
 test('operator loads the supplied sticker frame with an artwork cache key',async({page})=> {
   await page.goto('/operator');await expect(page.getByText('Connected',{exact:true})).toBeVisible();

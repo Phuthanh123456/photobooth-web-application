@@ -1,6 +1,18 @@
 # Implementation report — 2026-11-07
 
-## Full photo underlays with sticker overlap (latest, 2026-11-08)
+## Internet QR sharing (latest, 2026-11-08)
+
+The operator explicitly requested downloads over 4G/5G. Added a unique 192-bit random photo grant per verified four-photo COMPLETE, persisted in the output manifest and a constrained storage/shares index. QR links serve only their matching verified final framed JPEG through a mobile guest page; actual downloaded bytes are checked against the output manifest. Starting a new session preserves old grants; explicit completed deletion revokes the grant. Unknown/malformed tokens and corrupted/incomplete finals fail closed.
+
+Display now places the final image beside a high-contrast QR card with four-module quiet zone, retry on failed QR image loads, tablet landscape/portrait sizing and phone stacking. iPad display remains control-free. Operator can open the guest link. Local proxy uses ^/s/ to avoid intercepting /src. Guest HTML has no scripts, third-party assets or camera controls; token pages use no-store/noindex/no-referrer headers.
+
+Public Internet traffic uses a separate loopback listener on port 3006 with only /s routes. Cloudflare Quick Tunnel forwards exclusively to that listener. The official Windows x64 binary 2026.10.7 was installed under ignored .local/bin and verified against the SHA-256 supplied by its official GitHub release. Startup/stop scripts track the workspace tunnel and validate its executable path before stopping it. This is a temporary hostname requiring the laptop/tunnel online, with no uptime guarantee; it is not a claim of permanent cloud storage or a production hostname. PUBLIC_SHARE_ORIGIN can use a stable origin with future named-tunnel configuration.
+
+Restored existing completed session e0e9a6bd-7f6d-4f6a-bd7a-b278efd10013 for display only after verifying its originals/final outputs. Added its share metadata without changing JPG/PDF bytes, issuing a shutter or reopening Save As. A public HTTPS request retrieved the correct JPEG (1,443,659 bytes; SHA-256 534728158491fbc37512c85b321218cd71317809f5dcac2f055a796775aa3186). The actual displayed 270px QR decoded to its correct public page. Public operator/bootstrap/internal-token/WebSocket/Live View requests returned 404. The operator subsequently confirmed downloading the correct image over 4G/5G. Private evidence: storage/hardware-test/qr-public-download-check.json; local screenshots .local/qr-display-internet.png and .local/qr-guest-mobile.png. No real shutters were sent for this feature.
+
+Validation: 72 backend tests and six Chromium/WebKit browser tests passed; build passed after resolving the QR decoder's CommonJS test typings; QR tests passed again. Dependency audit reported zero vulnerabilities. Tests cover unique grants, actual QR decoding, exact guest download bytes, next-session/restart persistence, deletion revocation, legacy grant creation, malformed/incomplete/corrupt rejection, public route isolation, completed-display restoration without shutters/Save As, and responsive QR/guest layouts. Actual iPad hardware and printing acceptance remain separately pending.
+
+## Full photo underlays with sticker overlap (2026-11-08)
 
 The operator explicitly replaced the earlier safe-area/no-crop policy: photos must fill each complete opening and stickers may cover them. Removed contentBox/safe-rectangle generation and use all eight opening bounds with two source pixels of bleed under antialiased borders. JPEG now uses centered cover; PDF uses the corresponding uniform cover scale and slot clipping. Both continue to draw the original unchanged RGBA artwork last. No shrinking, white safety margins or artwork repainting is applied. Aspect ratio is preserved; excess image edges may be cropped to fill each opening.
 

@@ -10,9 +10,12 @@ import { FileSessionStorage, validSessionId } from './storage.js';
 import type { NikonCameraAdapter } from './camera.js';
 import { previewJpeg } from './preview-jpeg.js';
 import type { DesktopSave } from './desktop-save.js';
+import {createShareRouter,shareInfo,shareOrigin} from './sharing.js';
 
-export function createPhotoboothServer(engine: SessionEngine, imageRoot: string, storage = new FileSessionStorage(imageRoot), camera?:NikonCameraAdapter, desktopSave?:DesktopSave) {
+export function createPhotoboothServer(engine: SessionEngine, imageRoot: string, storage = new FileSessionStorage(imageRoot), camera?:NikonCameraAdapter, desktopSave?:DesktopSave,publicOrigin?:string) {
   const app = express();
+  const origin=shareOrigin(publicOrigin);
+  app.use('/s',createShareRouter(storage,origin));
   const operatorToken = randomBytes(32).toString('hex');
   const authorized = (cookie?: string) => cookie?.split(';').some(part => part.trim() === `photobooth_operator=${operatorToken}`) ?? false;
   const operators = new WeakSet<WebSocket>();
@@ -77,7 +80,7 @@ export function createPhotoboothServer(engine: SessionEngine, imageRoot: string,
   const send = (ws: WebSocket, event: ServerEvent) => {
     if (ws.readyState === WebSocket.OPEN) {
       if (ws.bufferedAmount > 1024 * 1024) { ws.terminate(); return; }
-      if(event.type==='STATE') event={...event,state:{...event.state,desktopSave:operators.has(ws) ? desktopSave?.snapshot(event.state.sessionId) : undefined}};
+      if(event.type==='STATE') event={...event,state:{...event.state,share:shareInfo(event.state,origin),desktopSave:operators.has(ws) ? desktopSave?.snapshot(event.state.sessionId) : undefined}};
       if (event.type === 'STATE' && !operators.has(ws)) {
         event = { ...event, state: { ...event.state, error:event.state.error ? 'Please wait for assistance' : undefined, outputFolder:undefined, output:undefined,
           captures:event.state.captures.map(c => ({ photo:c.photo, status:c.status })), cameraStatus:undefined, liveViewStatus:undefined } };

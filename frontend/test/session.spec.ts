@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {readFile} from 'node:fs/promises';
 
 test('operator and iPad display complete a real-time four-photo session', async ({ browser, page }, testInfo) => {
   const errors: string[] = [];
@@ -39,8 +40,21 @@ test('operator and iPad display complete a real-time four-photo session', async 
   expect(await manifest.json()).toMatchObject({ status: 'COMPLETE', captures: [ { status:'saved' }, { status:'saved' }, { status:'saved' }, { status:'saved' } ] });
   const output = await page.request.get(await page.getByRole('link', {name:'Download JPG'}).getAttribute('href') ?? '');
   expect(output.ok()).toBe(true); expect((await output.body()).subarray(0,2)).toEqual(Buffer.from([255,216]));
+  await expect(display.getByRole('img',{name:'Mã QR tải ảnh của lượt chụp này'})).toBeVisible();
+  const guestUrl=await page.getByRole('link',{name:/Open guest photo download/}).getAttribute('href');
+  expect(guestUrl).toMatch(/^http:\/\/localhost:5175\/s\/[A-Za-z0-9_-]{32}$/);
+  const guest=await displayContext.newPage();await guest.setViewportSize({width:390,height:844});await guest.goto(guestUrl!);
+  await expect(guest.getByRole('heading',{name:'Ảnh của bạn đã sẵn sàng'})).toBeVisible();
+  await expect(guest.getByRole('img')).toBeVisible();
+  const [download]=await Promise.all([guest.waitForEvent('download'),guest.getByRole('link',{name:'Tải ảnh JPG'}).click()]);
+  expect(await readFile((await download.path())!)).toEqual(await output.body());
+  expect(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await display.screenshot({path:testInfo.outputPath('display-qr-complete.png'),fullPage:true});
+  await guest.screenshot({path:testInfo.outputPath('guest-download-mobile.png'),fullPage:true});
   await page.getByRole('button', { name: 'Start Session' }).click();
   await expect(display.locator('.countdown')).toBeVisible();
+  await expect(display.locator('.session-qr')).toHaveCount(0);
+  expect((await guest.request.get(`${guestUrl}/download`)).ok()).toBe(true);
   await page.getByRole('button', { name: 'Cancel Session' }).click();
   await expect(page.locator('.status-row h2')).toHaveText('CANCELLED');
   await expect(display.getByText('Session cancelled', { exact: true })).toBeVisible();
