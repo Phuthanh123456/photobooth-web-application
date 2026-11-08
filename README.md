@@ -4,7 +4,7 @@ Current real-camera validation setup: laptop **http://localhost:5176/operator**,
 
 ## Current sticker frame (2026-11-08)
 
-The supplied [Frame CAP.png](assets/templates/Frame%20CAP.png) is now installed. Original RGBA bytes are preserved, with photos drawn first and the frame/stickers drawn last. All four photos appear twice, top-to-bottom in the two columns' actual openings. Photos fit inside clear rectangles that avoid sticker overlap, retaining all photo content without stretching/cropping; this can leave white margins. The older two-page artwork is no longer active. Empty previews use an artwork hash in their URL to avoid stale browser caching.
+The supplied [Frame CAP.png](assets/templates/Frame%20CAP.png) is installed. Original RGBA bytes are preserved, with full photo underlays drawn first and the frame/stickers drawn last. All four photos appear twice, top-to-bottom in the two columns' actual openings. Centered cover fitting preserves aspect ratio and fills each complete opening, including beneath sticker corners. Excess edges may be cropped; stickers are allowed to cover photos. The operator explicitly removed the earlier safe-rectangle/white-margin policy. The older two-page artwork is no longer active. Empty previews use an artwork hash in their URL to avoid stale browser caching.
 
 JPG: 1752x2467 at 300dpi. PDF: source PNG physical dimensions, with original photo streams and original transparent artwork. New frame checks used mock images and rendered both JPG/PDF; no new real shutters were sent. Native camera validation remains valid. Detailed geometry and regeneration are documented in [template configuration](assets/templates/README.md).
 
@@ -12,7 +12,7 @@ JPG: 1752x2467 at 300dpi. PDF: source PNG physical dimensions, with original pho
 
 After each countdown, the display flashes and keeps the camera unobstructed during CAPTURING, SAVING and COMPOSING. It shows no Smile/saving card in those states. The completed frame still fills the main display after photo 4.
 
-The JPEG and PDF compositors fit the entire photo inside each slot without cropping or stretching. Different aspect ratios can leave white bars. The initially supplied Frame CAP (1).pdf duplicated the old template; the operator subsequently supplied the correct transparent sticker PNG, now installed as described above.
+The JPEG and PDF compositors fill each full opening with centered cover fitting as described above; the earlier contain/no-crop policy was superseded by the operator's later instruction. The initially supplied Frame CAP (1).pdf duplicated the old template; the operator subsequently supplied the correct transparent sticker PNG, now installed.
 
 Set `AUTO_SAVE_DIALOG=1` on the Windows backend to open a native Save As window automatically after COMPLETE. Choose a folder and press Save; the chosen folder is remembered for subsequent sessions. Optional `PHOTOBOOTH_SAVE_FOLDER` sets the initial folder before the first successful save. Cancel keeps the verified originals/final output and does not automatically reopen the window. The operator can use **Save image as…** to try again. A confirmed overwrite is required for existing files. Save As runs on the laptop; display clients cannot open it or receive saved paths. Finish/cancel an open dialog before deleting the current completed session with Retake. Browser download links remain optional fallback actions.
 
@@ -78,9 +78,9 @@ ERROR never retries or resumes an uncertain shutter. Inspect camera and storage 
 
 ## Template and output
 
-The active [Frame CAP.png](assets/templates/Frame%20CAP.png) contains two strips on one canvas. TEMPLATE_PAGE=1 is the only active design. Transparent opening coordinates and clear photo rectangles are documented in [template configuration](assets/templates/README.md).
+The active [Frame CAP.png](assets/templates/Frame%20CAP.png) contains two strips on one canvas. TEMPLATE_PAGE=1 is the only active design. Full photo-underlay coordinates are documented in [template configuration](assets/templates/README.md).
 
-Both columns use rows 1–4 for photos 1–4. The same measured geometry drives progressive JPEG preview and final exports. Contain fitting preserves the entire photo and its aspect ratio in a clear area, with white space when needed, and normalizes EXIF orientation. PDF draws the original transparent artwork above photos at the source PNG's declared physical size; original JPEG streams are embedded unless EXIF rotation requires normalization. Final JPG is 300dpi, quality 95, 4:4:4; originals are never recompressed on save.
+Both columns use rows 1–4 for photos 1–4. The same measured geometry drives progressive JPEG preview and final exports. Centered cover fitting fills each entire opening with aspect ratio preserved, cropping excess edges instead of adding margins or avoiding stickers. PDF draws the original transparent artwork above photos at the source PNG's declared physical size; original JPEG streams are embedded unless EXIF rotation requires normalization. Final JPG is 300dpi, quality 95, 4:4:4; originals are never recompressed on save.
 
 Default storage is `<repository>/storage`. Set `$env:STORAGE_ROOT='D:\PhotoboothStorage'` to change it:
 

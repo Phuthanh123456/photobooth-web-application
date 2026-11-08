@@ -1,6 +1,16 @@
 # Implementation report — 2026-11-07
 
-## Sticker PNG installation (current, 2026-11-08)
+## Full photo underlays with sticker overlap (latest, 2026-11-08)
+
+The operator explicitly replaced the earlier safe-area/no-crop policy: photos must fill each complete opening and stickers may cover them. Removed contentBox/safe-rectangle generation and use all eight opening bounds with two source pixels of bleed under antialiased borders. JPEG now uses centered cover; PDF uses the corresponding uniform cover scale and slot clipping. Both continue to draw the original unchanged RGBA artwork last. No shrinking, white safety margins or artwork repainting is applied. Aspect ratio is preserved; excess image edges may be cropped to fill each opening.
+
+Recomposed the four existing originals of session b79303b0-a1b1-4415-bb50-c74ad77c978a into separate private preview/final artifacts under .local, without altering any original/session export or sending real shutters. The camera/native validation files are unchanged. Tests now check full opening coverage for both wide and portrait images and explicitly verify opaque sticker pixels remain above photo underlays.
+
+Validation: all 60 backend tests, all five Chromium/WebKit browser tests and the full build passed. New JPG and rendered PDF were visually inspected using the existing originals: all openings are filled, with stickers on top and no safety-margin gaps. Capture hashes still match their session manifest. Private evidence is stored in storage/hardware-test/frame-fill-composition.json. The restarted real service keeps automatic Save As enabled.
+
+The earlier safe-rectangle installation notes below are historical and superseded by this user correction.
+
+## Sticker PNG installation (2026-11-08)
 
 Installed the operator's actual Frame CAP.png unchanged: 2335x3289 RGBA pixels at 399.9738dpi, SHA-256 f25c5f60b8cc632ccaa21200af61ab9327cbf313f7bd4a2e8feb2d6c0216d836. Native transparency defines eight openings. tools/inspect-frame.py measures each column independently and derives maximum clear 3:2 rectangles with two-pixel clearance; full photos are contained within these safe rectangles so no photo content is cropped, stretched or hidden by sticker edges. White margins are intentional. JPG and PDF draw the original artwork last, preserving sticker/border pixels. The retired PDF/page-2 artwork was removed from active assets; prior completed photos/exports remain intact.
 

@@ -1,5 +1,11 @@
 # Milestones
 
+## Full-opening photo correction (2026-11-08)
+
+- Removed the safe rectangles per the operator's explicit correction. Fill each complete opening with centered cover and a two-pixel underlay bleed; sticker overlap and edge cropping are allowed, aspect ratio is preserved.
+- Photos render first and the unchanged transparent PNG overlays them last in previews/JPG/PDF.
+- Regenerated separate preview/final artifacts using the four existing b79303b0-a1b1-4415-bb50-c74ad77c978a originals, preserving existing saved files and issuing zero shutters. Earlier safe-area notes below are superseded.
+
 ## Sticker PNG installation (completed, 2026-11-08)
 
 - Imported Frame CAP.png unchanged; measured eight native transparent openings and clear 3:2 photo rectangles avoiding sticker overlap. Both columns receive photos 1-4 in order without crop/stretch.
