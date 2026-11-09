@@ -1,75 +1,51 @@
-# Nikon Z30 SDK feasibility and verified integration status
+# Nikon Z30 feasibility and integration notes
 
-## Current native correction and revalidation
+## Current result
 
-Connected-body readiness no longer invokes USB discovery: the failed fourth-photo trace showed DeviceReady success followed by EnumDevices -108. The bridge uses the documented DeviceReady process to detect busy/disconnected bodies; discovery is confined to initial connection. Documented GetLiveViewStatus permits safe recovery of orphan remote preview without issuing a shutter. New native and Node fingerprints were independently validated by the approved single-photo report `2849c116-f40d-4d14-9ee0-03d6895eb0f1`, then exactly one approved four-photo session `c7a462b6-45fa-4fb7-8559-15271f31c61f` passed with four verified originals and final JPG/PDF. SDK log records four shutter calls and one initial discovery. Hardware no-shutter test passed 80 readiness checks/three preview restarts. Native regression, 50 backend tests, three browser tests and builds passed. See IMPLEMENTATION_REPORT.md for private evidence paths. Earlier reports remain historical and cannot unlock the changed binary.
+The CAP source includes a real Nikon camera adapter and a Windows native bridge boundary for Nikon's separately installed SDK. A physical Nikon Z30 was used to verify Live View, JPEG capture and transfer to the host, and one four-photo session with verified image records and finished JPG/PDF outputs.
 
-## Earlier M2G hardware evidence
+This is a Nikon Z30 implementation. It should not be treated as proof of compatibility with every Nikon body, firmware, SDK release, USB controller, or Windows installation. The SDK remains external and must be obtained and installed by the operator under Nikon's current terms.
 
-Actual Z30 preview rendered at 640×424 in WebKit before/after four real captures. The operator confirmed real Live View in **Safari iPhone**, and clarified that an iPad is not currently available. Physical iPad validation remains pending. SDK/backend restart released/reconnected the camera, preserved the passed single-photo gate and all completed output hashes, and issued no shutters.
+## Integration design
 
-The SDK preview buffer was 708,096 bytes although the main JPEG ended at about 19.5KB; trailing bytes included padding/stale data. The MJPEG route now walks JPEG markers/scans to trim only the main JPEG, avoiding false EOI matches inside metadata/thumbnail segments. It does not recompress the frame. Tests cover padding, stale trailers, APP markers, progressive JPEG and malformed/truncated data. The real optimized stream delivered 21 frames in 3.217s (6.53fps), 412,245 bytes total, with a 19,595-byte sample JPEG.
+```text
+TypeScript session engine
+  → shared camera interface
+  → Nikon TypeScript adapter
+  → bounded process/IPC bridge
+  → Windows x64 native C++ bridge
+  → Nikon Remote SDK and connected Z30
+```
 
-Final automated checks: 47 backend tests and 2 browser tests passed, full build passed, npm audit reported zero vulnerabilities. Actual iPad Safari, disruptive USB/power behavior and physical printing remain untested. Destructive retake of completed real output was not performed; current successful outputs remain protected.
+The session engine also has a mock adapter for development and automated tests. Real mode fails closed when the expected SDK, device, profiles, or a valid local hardware-validation report is missing. It does not silently switch to mock mode.
 
-## Actual inspected package
+The bridge uses Nikon's device discovery when establishing the connection and a connected-device readiness check during the session. This avoids repeating USB discovery while the body is already connected. Live View uses bounded frame handling and stale-frame detection; capture and preview operations are coordinated so they do not overlap camera commands.
 
-`D:\PhuThanh\Code\NikonSDK\RemoteModuleSDK\S-SDKZ-210BF-ALLIN`
+## Device and file settings
 
-Read `ReadMe_En.txt`, both Windows headers and Windows sample project/source, and the English MAID basic/common PDFs. No vendor source/manual is copied into Git. The package identifies Remote SDK **v2.1.0**, lists **Z30**, Windows 11 x64, and VC++ Redistributable for VS 2022. The sample project specifies v143 and Windows SDK 10.0. The team’s successful NX Tether demonstration is separate evidence and does not prove this adapter’s hardware behavior.
+The tested capture path used JPEG Fine and Large with host transfer enabled. The adapter checks the camera's advertised settings instead of guessing enum values. A saved image is decoded and verified before the session advances. If shutter completion or transfer is uncertain, the session enters an operator-visible error state; there is no automatic shutter retry.
 
-`Command/English/Z 30UsbMtpE_02.pdf` documents low-level USB MTP. `Module/Win` supplies the higher-level Remote Module SDK, which is selected for this bridge. Implementing USB/MTP transport separately is unnecessary when this module provides documented simplified APIs.
+Each event session produces four verified capture records. The original images are retained locally for composition and inspection. The final framed JPG and PDF are separate outputs. Only the verified final JPG is eligible for guest cloud sharing.
 
-## Verified files and runtime dependencies
+## SDK installation and build
 
-- Headers: `Module/Win/HeaderFile/Maid3.h`, `Maid3d1.h`, `NkTypes.h`, `Nkstdint.h`, `NkEndian.h`.
-- Runtime: `ControlServiceLayer.dll`, `NkdPTP.dll`, `NkRoyalmile.dll`, `dnssd.dll` in `Module/Win/BinaryFile`.
-- Profiles: `DC_PTP_Config.config`, `MaidLayer.config`, `RangeValue.config`, required under `%LOCALAPPDATA%\Nikon\NXTether` by ReadMe. This installation’s three profile hashes matched the supplied SDK during the probe. Different profiles are never overwritten automatically.
-- All four DLLs were inspected as PE32+ machine `0x8664`. Imports include Windows system libraries, `MSVCP140.dll`, `VCRUNTIME140.dll`, `VCRUNTIME140_1.dll` and Universal CRT API sets. `NkdPTP` imports `NkRoyalmile`, which imports `dnssd`.
-- Required simplified API exports were found in the actual ControlServiceLayer DLL using `tools/inspect-sdk.py`.
+1. Obtain the Nikon Z-series Remote SDK from Nikon using an authorized account and accept its terms.
+2. Extract/install the SDK on the Windows 11 x64 event laptop. Do not point setup at the ZIP file or only its `Module` subdirectory; use the SDK root containing the documented `Module/Win/BinaryFile` structure.
+3. Install the SDK's required Windows runtime and C++ toolchain prerequisites.
+4. Connect and power the Z30. Close NX Tether and all other Nikon camera-control applications.
+5. Run `Setup Camera.cmd` in the event package, select the external SDK root, and complete the one-photo validation only when the operator explicitly approves the shutter.
+6. Run `Start Photobooth.cmd` only after setup and validation report success.
 
-No standalone import libraries were present in the inspected Windows package. The SDK sample loads the DLL dynamically; the bridge follows that approach using header-declared function-pointer types.
+For source development, `tools/build-native.ps1` builds the bridge and `npm run camera:setup`, `npm run camera:probe`, and `npm run camera:test` provide setup, no-shutter probe, and explicitly confirmed single-photo validation. See [README.md](README.md) and [HANDOFF_VI.md](HANDOFF_VI.md).
 
-## API contracts used — actual header declarations are authoritative
+The repository intentionally excludes Nikon headers, manuals, SDK DLLs, sample binaries and other vendor files. Before distributing any package that includes a Nikon component, review the applicable Nikon license and redistribution terms. The event ZIP includes the project's bridge/runtime components only; the recipient obtains the Nikon SDK separately.
 
-The original bridge binds `InitializeSDK`, `FreeSDK`, `EnumDevices`, `ConnectDevice`, `DisconnectDevice`, `GetCapability`, `SetCapability`, `StartShooting`, `GetShootingStatus`, `StartLiveView` and `StopLiveView` from the external DLL. Signatures are taken directly from the supplied typedefs, not invented bindings.
+## Known boundaries
 
-- Initialize registers allocation/free callbacks and the `NkMAIDCSCallback` event, progress, UI, data and Live View callbacks. Enumeration returns `NkMAIDDeviceInfo` including name, ID, availability and version.
-- Connect uses the enumerated device ID. The bridge accepts only an available Z30 and supports one connected body.
-- Readiness uses the advertised DeviceReady process capability (34010, process type, Start operation) plus fresh device enumeration. On this Z30, GetShootingStatus initially returns S_FALSE with FinishedOrNotStarted; this is not treated as proof of readiness. Successful DeviceReady confirms the body state.
-- SaveMedia is explicitly set/read back as Card + SDRAM (2); card-only (0) does not transfer an image to the PC. SetImageVideoSavePath and each shooting request use the unique capture directory.
-- JPEG Fine and Large are selected from SDK-supported packed-string enums (`CompressionLevel`, `ImageSize`) and read back. Unknown labels/types fail closed; control values are not guessed from a different camera’s sample tables.
-- `StartShooting` takes `MAIDShootingStructure&`, async completion pointer and reference. The bridge zero-initializes this structure, uses `kNkSDKShootingTypeSingle`, autofocus, and a unique absolute `ImageSavePath`.
-- MAID basic manual §2.6 explicitly assigns image writing to the SDK and identifies `kNkMAIDEvent_ImageSaved` as PC save notification. The bridge correlates that event to the unique transfer directory, requires one JPEG and finished shooting status, then Node fully decodes/verifies the received original. An old callback cannot satisfy another capture.
-- `CaptureComplete` timestamps provide event-based capture latency when present. ImageSaved timestamps provide total/transfer timing. Unobserved capture timing stays null; SDK timing is not a physical shutter sensor measurement.
-- Header `LiveViewDataProc` receives `NkMAIDLiveViewData` with `ulLvImageSize` and `pImageData`. The delivered JPEG is copied into a bounded latest-frame slot before releasing callback allocations. Read the header as authoritative: the supplied sample callback return type and some PDF signatures differ from the header.
-- Live View checks `LiveViewProhibit`, starts/stops through documented APIs, and pauses before shutter execution. Unsupported/prohibited preview is reported honestly. The MJPEG server uses fresh preview JPEGs only, not full-resolution capture images.
-- Shutdown calls DisconnectDevice and FreeSDK and unloads the DLL. Process isolation protects Node from native faults. An SDK UI prompt is cancelled and latches an intervention state instead of guessing a camera decision.
+- Hardware validation is specific to the connected device and fingerprints the SDK/bridge/profile inputs. A change to those inputs requires validation again.
+- Camera readiness and USB behavior can vary with power state, cable, host controller and other software that claims the device.
+- USB removal during exposure and exhaustive recovery testing across Windows machines remain additional acceptance work.
+- PDF creation is tested in software; physical printer calibration, paper feed and print color are not part of the camera integration test.
+- Guest QR delivery requires internet access to the configured cloud destination. Local camera capture and file generation remain on the event laptop.
 
-The child process uses a small correlated tab-framed protocol on stdio, with JSON results and base64 preview events. Node allows one outstanding command, validates transferred paths, bounds buffers, times out/kills a stuck bridge and never replays an uncertain shutter. Native capture timeout is 30s; the parent allows at least 35s for that command. Callback frames are coalesced and displayed at at most ~8fps.
-
-## Build and licensing
-
-The SDK sample expects MSVC v143. This machine did not have the C++ toolset/CMake available. A workspace-local Zig/Clang 0.17.1 compiler successfully produced a Windows x64 bridge. A local ignored compatibility header only moves an unchanged enum definition to its declaration site and removes an unused forward enum reference to satisfy standard C++; vendor files remain unmodified. ABI assertions verify Windows pointer/ULONG/wchar sizes and the supplied packed structures. See README for exact build commands. MSVC/CMake configuration is supplied but that toolchain was not executed here.
-
-The extracted ReadMe does not establish a redistribution grant; headers/sample source carry Nikon copyright notices. The original acceptance/license terms must be retained/reviewed by the SDK licensee before distributing a bundle. No permission to redistribute vendor files is assumed. All SDK headers, DLLs, generated local compatibility files and manuals remain outside tracked source. Only our original bridge, wrapper, scripts and paraphrased findings are committed.
-
-## Evidence and remaining hardware gates
-
-**IMPLEMENTED / BUILD VERIFIED:** native bridge; Node real adapter; explicit MOCK/REAL_NIKON selection; no fallback; confirmation-gated hardware CLI; report/fingerprint gate; MJPEG transport and SDK Live View callback/lifecycle code.
-
-**TESTED WITH MOCK SDK:** one/four-photo flow, overlap rejection, uncertain shutter failure/timeout, process crash, invalid transfer paths/JPEGs, camera disconnection, validation gates and preview transport. These are CI boundaries, not physical Nikon results.
-
-**HISTORICAL M2D SDK PROBE:** DLL loading and InitializeSDK/EnumDevices ran against this package. It returned no available Nikon Z30. The test report records failure at detection with shutterCount 0. No real shutter command was issued. NX Tether/competing camera clients were not running when inspected.
-
-**CURRENT M2E - TESTED WITH REAL NIKON Z30:** confirmed capture and transfer of a verified 5568x3712 JPEG (7,224,414 bytes). Report `storage/hardware-test/040344af-4f6e-4424-9db4-297a0864d194/result.json` passed after safe SDK shutdown. SDK ImageSaved latency 743ms; CaptureComplete callback 755ms. ImageSaved precedes that callback, so a separate transfer duration remains null. Actual Live View streamed at 640x424 and rendered in WebKit.
-
-**CURRENT M2F - TESTED WITH REAL NIKON Z30:** exactly four verified 5568x3712 images captured after separate full countdowns; session 81c215e9-9632-4d26-b426-81a27e73e7cf reached COMPLETE and produced verified JPG/PDF/manifest. No shutter preceded its deadline. Unconfirmed destructive RESET was rejected and outputs preserved.
-
-**NOT TESTED / BLOCKED:** USB removal during exposure, physical iPad device identity/complete Safari acceptance and actual print acceptance. Physical shutters require explicit operator confirmation. REAL_NIKON four-photo sessions remain disabled without a PASSED single-photo report matching current device-reported version, SDK/profile/native and Node bridge hashes and verified original JPEG.
-
-Do not run NX Tether, Camera Control Pro or Nikon Transfer simultaneously. For the hardware test, stop a real-mode backend, close those clients, connect/power the Z30 and run `npm run camera:test` in an interactive terminal. The exact prompt grants one shutter only. Changing any SDK/bridge/profile/device fingerprint requires validation again.
-
-The device version in validation is the SDK-provided NkMAIDDeviceInfo.Version string. Its relationship to actual body firmware still needs confirmation on the physical Z30; no unobserved firmware value is invented. Explicit current-session reset releases a failed native process before cleaning its registered transfer directories. Older orphan transfers are left for manual inspection.
-
-M2E discovered and fixed two real SDK integration issues: retain AddDllDirectory registration for lazily loaded transport modules throughout SDK lifetime, and set SaveMedia=2 for host delivery. The first authorized card-only exposure was not automatically retried; a separately authorized second exposure produced the verified JPEG. Windows USB identity is hashed into the hardware validation fingerprint because NkMAIDDeviceInfo.Version reports `common`, not actual firmware. The SDK reports a generic L(3984x2656) capability label while the decoded original is 5568x3712; do not infer actual pixels from that label.
+Automated backend and browser tests use controlled camera mocks. They do not issue real shutter commands. Real-camera tools require an explicit interactive operator confirmation and do not automatically retry an uncertain exposure.

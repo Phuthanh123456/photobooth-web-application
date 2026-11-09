@@ -1,144 +1,48 @@
-# Implementation report — 2026-11-07
+# Implementation and verification report
 
-## Windows handoff and cloud sharing (2026-11-08)
+**Project:** CAP Photobooth
+**Verification snapshot:** 2026-11-09
 
-Selected architecture: a portable Windows app controls USB Nikon locally; operator uses localhost, iPad uses the same phone hotspot/local network, and completed guest JPGs are stored in Supabase and viewed through a Render Static Site. Added Start/Stop/Mock/Camera Setup/Cloud Setup/Firewall launchers, a constrained production HTTP/WebSocket gateway, and a release builder with bundled Node, our native bridge and checksum-verified cloudflared. SDK runtime and camera validation are installed/performed separately on the recipient laptop; no hardware permission is bypassed. Start never issues a shutter. Safe stop uses parent IPC and waits for camera/save settlement rather than killing arbitrary processes. Windows Firewall script only opens the chosen UI port on Private/LocalSubnet and requires the user to run that explicit setup script as administrator.
+## Delivered system
 
-Cloud integration authenticates a dedicated uploader under UID-scoped Supabase Storage policies, refuses service-role/secret keys, uploads only verified final JPGs to random token object paths, and compares downloaded cloud bytes with local SHA-256 before publishing QR. The pending queue survives restart and retries uploads without involving camera commands. Ready links remain valid across later sessions. Confirmed retake serializes against in-flight uploads and removes its cloud object before deleting local output; network failure remains visible and preserves local files. Queue identity is bound to project/bucket/uploader to avoid silently switching ownership. The guest site uses validated hash identifiers, no credentials, no operator code, blob downloads, mobile feedback and no-referrer/noindex headers. render.yaml and SQL provisioning instructions are included.
+CAP is an operator-controlled photobooth application for a Windows 11 laptop connected to a Nikon Z30. The laptop owns the session and camera; a read-only tablet display follows the same backend state. The system captures four images with a separate 10-second countdown before each shutter, waits for verified image saves, composes the supplied transparent sticker frame, and produces a finished JPG and PDF.
 
-Validation: **83 backend tests, eight Chromium/WebKit browser tests, production-gateway integration test and full TypeScript/Vite build passed**. New cases cover cloud failure/restart, verification mismatch, credential redaction, identity changes, reset during upload, deletion failure, guest download byte equality, forged LAN operator origins/cookies, internal-route isolation and malformed stop tokens. All PowerShell scripts parsed successfully. Runtime dependency audit reports zero vulnerabilities. A separate portable staging directory ran a real-time four-photo MOCK session through its bundled Node, production gateway and proxied WebSocket, generated its verified 797,664-byte final JPG, and shut down gracefully. No real shutter commands were issued for this work, and native/SDK adapter fingerprint sources were not changed.
+Completed JPGs can be uploaded to Supabase Storage from the event laptop. A public static guest page resolves a unique QR link and lets guests download that session's image from Wi-Fi or cellular service. The public service has no camera, session-control, operator, original-image, or PDF routes.
 
-Release: `.local/releases/CAP-Photobooth-Windows-20261108T061508Z.zip`, 89,648,662 bytes, SHA-256 `579ac08126713bf416bb64c569a5b4ea8e2e862c4ace3241933fe723ee915d4c`. Extracted into a separate path containing spaces and verified all 2,901 release-manifest file hashes. That extracted final ZIP also passed the full real-time four-photo MOCK acceptance and graceful shutdown using its bundled runtime. ZIP scan found no private storage, cloud/event credentials, hardware reports or Nikon SDK runtime DLLs. Dependency licenses are retained. Source instructions: HANDOFF_VI.md.
+## Engineering highlights
 
-**Not deployed/accepted:** no connected Render/Supabase account or cloud credentials are present, so real cloud provisioning, upload and persistent public URL acceptance have not been performed. Configure Cloud.cmd provides an explicit real upload/read-back/delete check after the team provisions its accounts; mocked provider tests are not claimed as cloud acceptance. Recipient Windows laptop, its Nikon setup, its phone hotspot and physical iPad need on-site acceptance. Current temporary-tunnel public downloads were physically verified earlier, separately from this proposed cloud deployment. No Git push was performed.
+- Monotonic, backend-authoritative countdown deadlines and WebSocket state synchronization.
+- Duplicate-start rejection, serialized shutter operations, explicit camera readiness checks, cancellation and fail-closed error handling. Uncertain captures are never retried automatically.
+- Shared camera contract with deterministic mock and Nikon adapter backed by a separate Windows native bridge. Nikon SDK binaries and profiles are installed on the organizer laptop from Nikon; they are not redistributed in the source or package.
+- Verified JPEG transfer, per-session manifests, protected local output, framed JPG/PDF export, and a native Windows Save As flow.
+- Durable cloud-upload queue that publishes the QR only after the uploaded JPG is read back and its SHA-256 matches. Upload retries never issue camera commands.
+- A scoped event gateway separates the local operator experience, LAN display and guest download surface.
 
-## Internet QR sharing (latest, 2026-11-08)
+## Validation evidence
 
-The operator explicitly requested downloads over 4G/5G. Added a unique 192-bit random photo grant per verified four-photo COMPLETE, persisted in the output manifest and a constrained storage/shares index. QR links serve only their matching verified final framed JPEG through a mobile guest page; actual downloaded bytes are checked against the output manifest. Starting a new session preserves old grants; explicit completed deletion revokes the grant. Unknown/malformed tokens and corrupted/incomplete finals fail closed.
+At this snapshot, the latest recorded automated checks passed:
 
-Display now places the final image beside a high-contrast QR card with four-module quiet zone, retry on failed QR image loads, tablet landscape/portrait sizing and phone stacking. iPad display remains control-free. Operator can open the guest link. Local proxy uses ^/s/ to avoid intercepting /src. Guest HTML has no scripts, third-party assets or camera controls; token pages use no-store/noindex/no-referrer headers.
+- 83 backend tests across the state machine, lifecycle, camera bridge, storage, composition, sharing, and cloud queue.
+- 8 browser tests across Chromium and WebKit, including guest-download and display behavior.
+- Production gateway integration test for route and credential boundaries.
+- Native C++ bridge regression checks and the TypeScript/Vite production build.
+- Dependency audit reported zero known vulnerabilities at the time of its run.
 
-Public Internet traffic uses a separate loopback listener on port 3006 with only /s routes. Cloudflare Quick Tunnel forwards exclusively to that listener. The official Windows x64 binary 2026.10.7 was installed under ignored .local/bin and verified against the SHA-256 supplied by its official GitHub release. Startup/stop scripts track the workspace tunnel and validate its executable path before stopping it. This is a temporary hostname requiring the laptop/tunnel online, with no uptime guarantee; it is not a claim of permanent cloud storage or a production hostname. PUBLIC_SHARE_ORIGIN can use a stable origin with future named-tunnel configuration.
+Physical validation used a Nikon Z30: a confirmed JPEG capture and host transfer, real Live View, and a complete four-photo session with verified source images and final exports were observed. The Windows event package was also extracted and exercised through a four-photo mock session and graceful shutdown. Cloud configuration was verified on organizer machines by uploading a test JPEG, reading it back with a matching SHA-256, then deleting the test object. The deployed guest page served correctly, and a guest QR download was confirmed over cellular data after the local app stopped. A physical iPad was used to view the completed frame and QR display.
 
-Restored existing completed session e0e9a6bd-7f6d-4f6a-bd7a-b278efd10013 for display only after verifying its originals/final outputs. Added its share metadata without changing JPG/PDF bytes, issuing a shutter or reopening Save As. A public HTTPS request retrieved the correct JPEG (1,443,659 bytes; SHA-256 534728158491fbc37512c85b321218cd71317809f5dcac2f055a796775aa3186). The actual displayed 270px QR decoded to its correct public page. Public operator/bootstrap/internal-token/WebSocket/Live View requests returned 404. The operator subsequently confirmed downloading the correct image over 4G/5G. Private evidence: storage/hardware-test/qr-public-download-check.json; local screenshots .local/qr-display-internet.png and .local/qr-guest-mobile.png. No real shutters were sent for this feature.
+These are recorded acceptance results, not a promise that every camera firmware, network, or tablet/browser combination will behave identically. Ordinary automated tests use mocks and do not trigger a camera shutter. Hardware validation tools require explicit operator confirmation.
 
-Validation: 72 backend tests and six Chromium/WebKit browser tests passed; build passed after resolving the QR decoder's CommonJS test typings; QR tests passed again. Dependency audit reported zero vulnerabilities. Tests cover unique grants, actual QR decoding, exact guest download bytes, next-session/restart persistence, deletion revocation, legacy grant creation, malformed/incomplete/corrupt rejection, public route isolation, completed-display restoration without shutters/Save As, and responsive QR/guest layouts. Actual iPad hardware and printing acceptance remain separately pending.
+## Deployment boundary
 
-## Full photo underlays with sticker overlap (2026-11-08)
+The Nikon, state machine, countdown and operator UI stay on the event laptop. The tablet connects to the laptop over the event LAN. Supabase and the static guest site handle only final-photo delivery, allowing guests to scan with 4G/5G. The developer laptop is not part of event runtime. The event organizer must keep the camera laptop powered and connected to the camera throughout the session.
 
-The operator explicitly replaced the earlier safe-area/no-crop policy: photos must fill each complete opening and stickers may cover them. Removed contentBox/safe-rectangle generation and use all eight opening bounds with two source pixels of bleed under antialiased borders. JPEG now uses centered cover; PDF uses the corresponding uniform cover scale and slot clipping. Both continue to draw the original unchanged RGBA artwork last. No shrinking, white safety margins or artwork repainting is applied. Aspect ratio is preserved; excess image edges may be cropped to fill each opening.
+No Nikon SDK vendor binaries, user credentials, cloud secrets, captured photos, hardware reports or local runtime configuration are included in Git. See [HANDOFF_VI.md](HANDOFF_VI.md) for event setup and [CAMERA_FEASIBILITY.md](CAMERA_FEASIBILITY.md) for SDK and hardware notes.
 
-Recomposed the four existing originals of session b79303b0-a1b1-4415-bb50-c74ad77c978a into separate private preview/final artifacts under .local, without altering any original/session export or sending real shutters. The camera/native validation files are unchanged. Tests now check full opening coverage for both wide and portrait images and explicitly verify opaque sticker pixels remain above photo underlays.
+## Remaining scope
 
-Validation: all 60 backend tests, all five Chromium/WebKit browser tests and the full build passed. New JPG and rendered PDF were visually inspected using the existing originals: all openings are filled, with stickers on top and no safety-margin gaps. Capture hashes still match their session manifest. Private evidence is stored in storage/hardware-test/frame-fill-composition.json. The restarted real service keeps automatic Save As enabled.
+- Validate against additional camera bodies, SDK versions, Windows machines and network configurations before broad deployment.
+- Exercise physical print output with the target printer and paper.
+- Define and implement an event-specific photo retention and deletion schedule; current cloud links remain available until the organizer deletes the corresponding session/object.
+- Review Nikon SDK licensing and redistribution rules before any commercial or redistributable release.
 
-The earlier safe-rectangle installation notes below are historical and superseded by this user correction.
-
-## Sticker PNG installation (2026-11-08)
-
-Installed the operator's actual Frame CAP.png unchanged: 2335x3289 RGBA pixels at 399.9738dpi, SHA-256 f25c5f60b8cc632ccaa21200af61ab9327cbf313f7bd4a2e8feb2d6c0216d836. Native transparency defines eight openings. tools/inspect-frame.py measures each column independently and derives maximum clear 3:2 rectangles with two-pixel clearance; full photos are contained within these safe rectangles so no photo content is cropped, stretched or hidden by sticker edges. White margins are intentional. JPG and PDF draw the original artwork last, preserving sticker/border pixels. The retired PDF/page-2 artwork was removed from active assets; prior completed photos/exports remain intact.
-
-JPG output is 1752x2467 at 300dpi; PDF is 420.327531x592.058780pt based on source metadata and embeds original RGBA art plus original JPEGs (except required EXIF normalization). Empty UI previews carry the source SHA in their URL and show the actual template name. A four-photo mock composition was visually inspected in both JPG and rendered PDF; all eight slot color samples matched. Private evidence: storage/hardware-test/sticker-frame-composition.json; mock previews are under .local. This change issued zero real shutter commands and changed no Nikon validation fingerprints.
-
-Checks: 60 backend tests passed, including unchanged source hash, all safe rectangles fully transparent, mapping/empty rows, sticker retention and wide-photo edge preservation. The four existing Chromium/WebKit browser checks and an additional targeted artwork cache-key check passed. Full build and subsequent frontend build passed. REAL_NIKON on 3004 is hardware validated with fresh preview; frontend 5176 serves the new frame. Automatic Windows Save As remains enabled.
-
-The earlier pending-sticker notes below are historical and are resolved by this installation.
-
-## Capture display, full-photo fitting and native Save As (2026-11-08)
-
-Implemented per the operator's new request: hide all guidance cards during CAPTURING/SAVING/COMPOSING while retaining authoritative countdown and capture flash; retain large final-frame display. Both JPEG and PDF now fit the entire photo within its slot without cropping/stretching. Rendered PDF and JPEG regression artifacts retained both colored edges of a deliberately wide fixture.
-
-Added a Windows STA SaveFileDialog launched by the backend after verified COMPLETE, with duplicate suppression, serialized dialogs, remembered successful destination, explicit overwrite confirmation, verified copying, cancellation/error preservation, shutdown cancellation, operator-only retry, and display-path redaction. Save As is enabled by AUTO_SAVE_DIALOG=1. The operator confirmed the real dialog appeared and pressed Save; a verified copy of an existing final was saved in Downloads and that folder was remembered. Private evidence: storage/hardware-test/windows-save-as-check.json. This check issued zero shutters and left the source final intact. No Nikon bridge/adapter fingerprints changed.
-
-Current template status: Frame CAP (1).pdf exactly matched the old PDF, including SHA-256 and its eight empty slots. The operator confirmed the wrong file and asked to continue the other changes. Correct sticker artwork is pending; no sticker replacement is claimed. User-requested layering will be completed when the correct file is supplied.
-
-Production build, 58 backend tests and four Chromium/WebKit E2E tests passed. Backend tests cover automatic Save As after four-photo finalization, duplicate/cancel/retry, folder memory, copy verification/overwrite, source preservation, shutdown and display privacy. The actual restarted Z30 backend is IDLE, hardware validated, with fresh Live View; frontend remains on 5176 and loopback backend on 3004.
-
-The sections below contain earlier evidence, including the earlier cover-crop implementation superseded by today's contain fitting.
-
-## Fourth-photo native SDK correction (current verified binary)
-
-Failed session `96a50b69-7d06-4981-aff6-ba717293638c` kept three verified originals. Its log showed DeviceReady success followed by EnumDevices failure (-108) during live preview before the fourth shutter. Removed USB rediscovery from ready(): connected-body DeviceReady still rejects busy/disconnected states. Added bounded waits for explicit busy responses, latched readiness/capture failures, and rejection of late preview frames after faults. Added GetLiveViewStatus-based recovery of orphan remote preview and orderly native console/backend shutdown.
-
-Regression uses the actual production C++ Camera with injected SDK functions: repeated readiness cannot call a failing discovery API; busy/disconnected/status failures issue zero shutters; orphan preview is stopped before restarting. Run `npm run camera:test:native`. SDK export/header/manual signatures were verified locally. No vendor files were committed.
-
-Validation: native regression passed, 50 backend tests passed, 3 Chromium/WebKit E2E tests passed, full build passed. Real no-shutter report `storage/hardware-test/readiness-fix-1794069585087.json` passed 80 READY checks, three preview restart cycles, 80 distinct JPEG previews in 51.9 seconds, clean close, and preservation of all three earlier originals.
-
-The operator then explicitly approved five new photos: one single-photo validation plus one four-photo session. Current single-photo report `storage/hardware-test/2849c116-f40d-4d14-9ee0-03d6895eb0f1/result.json` PASSED, original 5568x3712, 7,862,935 bytes, ImageSaved 953ms. Four-photo report `storage/hardware-test/readiness-fix-confirmed-four-photo.json` PASSED with one START and session `c7a462b6-45fa-4fb7-8559-15271f31c61f`. All four decoded 5568x3712 JPEGs verified; deadline lateness 16.7/34.7/38.1/10.6ms, none early. Final JPG and one-page PDF verified; large completed-frame display reached WebKit, with camera view removed. SDK log for bridge PID 42376 counted four StartShooting calls and one initial device discovery. Eight fresh previews were received after completion. No extra shutters/retries were sent. Completed output remains in storage/output and the service remains COMPLETE.
-
-The following sections describe earlier evidence; older report fingerprints do not authorize this modified binary. Physical iPad and printing acceptance remain pending.
-
-## Live View recovery follow-up
-
-The display now reads fresh JPEG snapshots with server frame IDs, bounded sequential requests and automatic reconnection. It removes stale images instead of leaving the final MJPEG frame frozen on screen. Tests cover HTTP failure/recovery and a stream that stops advancing its frame ID. Preview transport cannot send capture commands. The old MJPEG endpoint remains for compatibility.
-
-During this fix the SDK reported `StartLiveView failed (-109)`; the local Nikon log explicitly recorded `Already in live view state`. After the operator power-cycled the Z30 and the backend reconnected, 15 HTTP snapshot requests returned 15 distinct frame IDs and 15 distinct JPEG hashes. Camera readiness was true. This check sent zero shutters. Native bridge/SDK/validated capture code was unchanged.
-
-Validation: 48 backend tests passed; the three Chromium/WebKit E2E tests passed. After adding repeated-frame staleness coverage, both WebKit tests passed again. Builds passed. A separate WebKit visit to the real `/display` rendered 640x424 camera images with eight successive image sources and zero controls or shutter commands. The Vite proxy includes the new snapshot endpoint.
-
-## Final M2G evidence update
-
-**IMPLEMENTED / TESTED WITH REAL Z30:** single-photo capture, exactly one separately approved four-photo session, verified JPG/PDF/manifest, real Live View before/after capture, SDK/backend restart/reconnection and completed-output preservation. **TESTED WITH SAFARI IPHONE:** operator-confirmed real feed. **NOT TESTED:** physical iPad (not available), disruptive USB/power, actual printing and destructive retake of the completed real output.
-
-Final software checks: **47 backend tests across 9 files; 2 Chromium/WebKit browser tests; full build passed; zero npm audit vulnerabilities**. The previously recorded lower test counts below are historical milestone results.
-
-SDK preview buffers contained padding/stale bytes beyond the main JPEG. Marker-aware trimming reduced the observed payload from 708,096 bytes to about 20KB without recompression. Actual post-change stream: 21 frames / 3.217s, 412,245 bytes total, sample JPEG 19,595 bytes at 640×424. Bright-scene guidance received a dark contrast overlay. The restart/hardware-gate/output-hash check issued no shutters. Evidence: `storage/hardware-test/m2g-live-view-optimized.json`.
-
-Current real-mode URLs: laptop **http://localhost:5176/operator**; iPhone/iPad **http://192.168.1.6:5176/display**. Backend is loopback 3004. Port 5173 may still be MOCK. Exact environment/start commands are at the top of README. An actual iPad should be tested with the same display URL before the event; iPhone confirmation is not reported as iPad acceptance.
-
-| Milestone | Status | Evidence |
-|---|---|---|
-| M0 / M1 | Preserved | `dea8274` / `34d0248`; original behavioral tests retained |
-| M2A | IMPLEMENTED / TESTED WITH MOCK | `cbb3536`: actual two-page template, geometry, valid JPEG mock, progressive composition |
-| M2B | IMPLEMENTED / TESTED WITH MOCK | `6f084ff`: laptop dashboard, display-only iPad layout, real-time browser tests |
-| M2C | IMPLEMENTED / TESTED WITH MOCK | `39cc9a2`: final JPG/PDF/manifest verification, cleanup/reset/retake, authorization |
-| M2D | IMPLEMENTED / BUILD VERIFIED / TESTED WITH MOCK SDK | This source commit: Windows x64 C++ bridge, real adapter, strict mode/gates, boundary tests; actual SDK initialization/enumeration ran |
-| M2E | TESTED WITH REAL NIKON Z30 / PASSED | Confirmed original JPEG 5568x3712, 7,224,414 bytes, hash verified and resources released; report 040344af-4f6e-4424-9db4-297a0864d194 |
-| M2F | TESTED WITH REAL NIKON Z30 / PASSED | Exactly one START -> four full deadlines -> four verified 5568x3712 images -> verified final JPG/PDF/manifest; session 81c215e9-9632-4d26-b426-81a27e73e7cf |
-| M2G | IMPLEMENTED; IPAD ACCEPTANCE PENDING | Actual Z30 Live View and Safari iPhone confirmed; WebKit tablet viewport validated. Actual iPad unavailable; print/disruption checks not run |
-
-## Verified results
-
-- `npm test`: 47 tests passed across 9 files, including original M1 invariants, full countdowns/four-photo sequence, failure/overlap/reconnection, composition geometry/duplicate slots, final PDF/JPG, JPEG decoding, reset during capture, cleanup/final preservation, privacy/authorization, mocked SDK/bridge crashes/timeouts, JPEG preview trimming and Live View stream lifecycle.
-- `npm run build`: shared/backend/frontend TypeScript checks and Vite build passed.
-- `npm run test:e2e`: two browser tests passed: the real-time Chromium workflow plus WebKit iPad display/countdown/reconnection/active reset; four photos, progressive actual-template preview, original image loading, final download/manifest, display reload, cancel/reset, 1366×768 laptop fit, iPad touch viewport and narrow layout.
-- `npm audit`: zero known vulnerabilities at verification time.
-- `npm run camera:build`: successful Windows x64 native build with local Zig/Clang 0.17.1; vendor SDK untouched/untracked. MSVC/CMake alternative not executed here.
-- `python tools/inspect-sdk.py`: actual x64 DLL architecture/imports and required exports verified.
-- `npm run camera:probe`: actual SDK load/initialization/enumeration reached device detection and failed honestly with no available Nikon Z30; shutterCount **0**. Report: `storage/hardware-test/04865b96-6531-438e-8ff7-f424e775dc6a/result.json` (private, ignored).
-
-Current M2E evidence confirms one real JPEG capture/transfer and actual Live View in WebKit. Historical M2D no-camera probe results below are retained as history, not current capability status. No Nikon proprietary files, captured photos, final exports, secrets or native binaries are committed. No push was performed.
-
-## Changed files
-
-- `assets/templates/`: supplied PDF, both rendered designs, exact slot geometry and template documentation.
-- `backend/src/composition.ts`, `storage.ts`, `engine.ts`: JPEG verification, deterministic cover-cropping, progressive frames, final print exports and safe lifecycle.
-- `backend/src/server.ts`, `index.ts`, `camera-factory.ts`, `camera.ts`: protected operator/media routes, redacted state, configurable storage/modes and gated real adapter wiring.
-- `backend/src/nikon/`: bounded native IPC, real Nikon adapter, profile/fingerprint checks and confirmed hardware-test CLI.
-- `native/`, `tools/`: original C++ bridge/CMake, build/SDK-inspection/compatibility and frame-extraction scripts.
-- `frontend/src/`, Vite/Playwright configuration: operator redesign, customer display, real-preview transport, capability bootstrap, server-authoritative state and isolated browser tests.
-- `shared/src/index.ts`, backend/browser tests, workspace scripts and all four requested project documents; Git ignores/binary attributes updated.
-
-## Output and use
-
-Start mock: `$env:CAMERA_MODE='MOCK'; npm run dev`. Operator: `http://localhost:5173/operator`. iPad: `http://<laptop-IP>:5173/display` on the same trusted Wi-Fi. Click Start once, wait for four automatic countdown/capture cycles, inspect/download the final frame, then cancel/reset or start another session. Windows Firewall and full steps are in README.
-
-Default final deliverables: `storage/output/photobooth-<UUID>-final.jpg`, `-final.pdf`, `-manifest.json`. Original JPEGs are internal under `storage/temp/session-<UUID>/`. Browser-generated mock artifacts are isolated under `.local/e2e-storage/output/`. Set `STORAGE_ROOT` to override the root.
-
-For hardware, close competing clients and any real-mode backend, connect/power the Z30, set `NIKON_SDK_ROOT` to the inspected external installation, run `npm run camera:probe`, then run **`npm run camera:test` in an interactive terminal**. It requests exact confirmation before one shutter. A PASSED report plus its verified original is required in `NIKON_VALIDATION_FILE` before REAL_NIKON four-photo sessions unlock. See README for exact build/setup/start commands.
-
-## Limitations / remaining blockers
-
-M2E has passed on the actual Z30. Real four-photo capture/export has passed. USB interruption, physical iPad identity/full Safari acceptance and actual printing remain unverified. Actual Live View has rendered in WebKit at 640x424. Single-photo ImageSaved took 743ms; CaptureComplete callback took 755ms, so split transfer duration cannot be reliably derived and remains null. The SDK-supported enum strings are checked at runtime; an unfamiliar representation fails closed instead of guessing. Device/SDK/bridge/profile changes invalidate the validation report.
-
-Only a local trusted-LAN dev deployment is configured. Automatic face-aware cropping, retention scheduling and public hosting/authentication are not implemented. Centre cover-cropping may require pose/framing adjustment on the real scene. Completed output is protected, while old cancelled/error sessions and orphan native transfers from prior processes can remain for manual inspection. An explicit current-session reset waits for native process exit before discarding registered failed transfers. SDK redistribution/license permission must be reviewed before packaging vendor components.
-
-## M2E physical evidence update
-
-First authorized exposure: shutter observed by operator and CaptureComplete in SDK log, but SaveMedia=0 (card-only) meant no host JPEG; report d4c896a5-e5b8-4718-b3fe-851598fd2db4 FAILED. No automatic retry occurred. After reading back SaveMedia=2 and a separate explicit one-photo authorization, report 040344af-4f6e-4424-9db4-297a0864d194 PASSED. Original SHA-256: `6c1f52b3a5f54bb1cfa449652d2e0b892e628de04bbfb24b96549eb8ab8647b0`. The SDK-reported size label differs from actual decoded dimensions; the JPEG itself is authoritative. Native/Node source, SDK/profile hashes and Windows USB device hash bind subsequent authorization.
-
-## M2F physical evidence update
-
-Operator separately approved exactly one four-photo real session. `storage/hardware-test/m2f-confirmed-four-photo-2.json` records one START, authoritative deadlines, four distinct original hashes, browser completion and output verification. Shutters were 12.93 / 7.49 / 10.67 / 11.54ms after their respective deadlines. All originals decoded at 5568x3712. Final JPG is 739,156 bytes at 300dpi; PDF is 31,418,808 bytes and renders at the original page size with duplicate placement of four photos.
-
-Outputs: `storage/output/photobooth-81c215e9-9632-4d26-b426-81a27e73e7cf-final.jpg`, `-final.pdf`, `-manifest.json`. Their hashes remained unchanged after rejected operator RESET-without-confirmation and display RESET attempts. Public original access returned 403. Busy/reset transfer races remain mock-SDK-tested; no completed real output was deleted for testing. No additional START/shutter was issued.
+The app is an event tool designed for a supervised operator, not a self-service kiosk or a cloud-hosted camera-control product.
