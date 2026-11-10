@@ -52,10 +52,13 @@ export class SupabasePhotoCloud implements PhotoCloud {
     const headers=await this.headers(),object=this.object(token);
     const upload=await this.request(`${this.config.projectUrl}/storage/v1/object/${this.config.bucket}/${object}`,{method:'POST',headers:{...headers,'Content-Type':'image/jpeg','x-upsert':'true','Cache-Control':'max-age=0'},body:new Uint8Array(jpeg),signal:AbortSignal.timeout(45_000)});
     if(!upload.ok) throw new Error(`Cloud upload failed (${upload.status}); local photo is preserved`);
-    const remote=await this.request(`${this.config.projectUrl}/storage/v1/object/public/${this.config.bucket}/${object}`,{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(45_000)});
+    // Confirm the public object is available without downloading the full photo
+    // back to the organizer laptop. The upload response + HEAD metadata verify
+    // publication and byte length while avoiding a second transfer of large JPGs.
+    const remote=await this.request(`${this.config.projectUrl}/storage/v1/object/public/${this.config.bucket}/${object}`,{method:'HEAD',headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15_000)});
     if(!remote.ok) throw new Error('Cloud photo read-back failed; QR is not ready');
-    const bytes=Buffer.from(await remote.arrayBuffer());
-    if(bytes.length!==jpeg.length || digest(bytes)!==digest(jpeg)) throw new Error('Cloud photo verification failed; QR is not ready');
+    const remoteLength=Number(remote.headers.get('content-length'));
+    if(remote.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='image/jpeg' || remoteLength!==jpeg.length) throw new Error('Cloud photo verification failed; QR is not ready');
     const ref=new URL(this.config.projectUrl).hostname.split('.')[0];
     return `${this.config.guestOrigin}/#${ref}/${this.config.bucket}/${object}`;
   }

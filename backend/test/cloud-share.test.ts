@@ -60,9 +60,9 @@ it('refuses to silently switch uploader identity for a persisted queue',async()=
   const changed=new CloudShares(storage,{...cloud,namespace:'another-account'});queues.push(changed);
   await expect(changed.start()).rejects.toThrow('uploader changed');
 });
-it('uses a dedicated user, idempotent JPG upload, read-back hash and a credential-free guest URL',async()=> {
+it('uses a dedicated user, idempotent JPG upload, lightweight read-back and a credential-free guest URL',async()=> {
   const jpeg=Buffer.from('a verified jpeg');
-  const request=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({access_token:'test-session',expires_in:3600,user:{id:uid}})).mockResolvedValueOnce(Response.json({Key:'ok'})).mockResolvedValueOnce(new Response(jpeg)).mockResolvedValueOnce(Response.json([]));
+  const request=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({access_token:'test-session',expires_in:3600,user:{id:uid}})).mockResolvedValueOnce(Response.json({Key:'ok'})).mockResolvedValueOnce(new Response(null,{status:200,headers:{'content-type':'image/jpeg','content-length':String(jpeg.length)}})).mockResolvedValueOnce(Response.json([]));
   const provider=new SupabasePhotoCloud(config,request);
   expect(await provider.publish(token,jpeg)).toBe(url);
   expect(request.mock.calls[0][0]).toContain('grant_type=password');
@@ -70,8 +70,8 @@ it('uses a dedicated user, idempotent JPG upload, read-back hash and a credentia
   expect(String(upload[1]?.body)).not.toContain('test-password');await provider.remove(token);
   expect(request.mock.calls[3][1]?.method).toBe('DELETE');expect(request).toHaveBeenCalledTimes(4);
 });
-it('never publishes a QR for a cloud JPEG with different bytes',async()=> {
-  const request=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({access_token:'session',expires_in:3600,user:{id:uid}})).mockResolvedValueOnce(Response.json({})).mockResolvedValueOnce(new Response('corrupted'));
+it('never publishes a QR for a cloud JPEG with different metadata',async()=> {
+  const request=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({access_token:'session',expires_in:3600,user:{id:uid}})).mockResolvedValueOnce(Response.json({})).mockResolvedValueOnce(new Response(null,{status:200,headers:{'content-type':'image/jpeg','content-length':'99'}}));
   await expect(new SupabasePhotoCloud(config,request).publish(token,Buffer.from('original'))).rejects.toThrow('verification failed');
 });
 it('does not leak sign-in response bodies or credentials through errors',async()=> {
