@@ -13,7 +13,11 @@ export function useSession(operator: boolean) {
     let lastMessage = performance.now();
     const connect = async () => {
       if (operator) {
-        try { const response = await fetch('/operator-api/bootstrap'); if (!response.ok) throw new Error('Open the operator screen on the laptop using localhost.'); }
+        try {
+          const response = await fetch('/operator-api/bootstrap',{cache:'no-store',signal:AbortSignal.timeout(5000)});
+          if (!response.ok) throw new Error(response.status===403 ? 'Operator controls require localhost on this laptop.' : `Backend is unavailable (HTTP ${response.status}). Open Start Photobooth.cmd and keep its window running.`);
+          if(!disposed) setError('');
+        }
         catch (e) { if (!disposed) { setConnected(false); setError(String(e)); reconnect = setTimeout(connect, 2000); } return; }
       }
       if (disposed) return;

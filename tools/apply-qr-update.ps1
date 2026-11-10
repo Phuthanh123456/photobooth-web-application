@@ -1,7 +1,14 @@
 param([string]$AppDirectory)
 $ErrorActionPreference='Stop'
-Write-Host 'CAP - Immediate QR update'
+Write-Host 'CAP - Photobooth application update'
 Write-Host 'Finish the current session and run Stop Photobooth.cmd before installing.'
+if(-not $AppDirectory) {
+  $candidate=Get-Item -LiteralPath $PSScriptRoot
+  while($candidate) {
+    if((Test-Path -LiteralPath (Join-Path $candidate.FullName 'Start Photobooth.cmd')) -and (Test-Path -LiteralPath (Join-Path $candidate.FullName 'backend/src/index.ts'))) {$AppDirectory=$candidate.FullName;break}
+    $candidate=$candidate.Parent
+  }
+}
 if(-not $AppDirectory) {
   Add-Type -AssemblyName System.Windows.Forms
   $dialog=New-Object System.Windows.Forms.FolderBrowserDialog
@@ -20,13 +27,19 @@ if(Test-Path -LiteralPath $instance) {
     $reply=Invoke-WebRequest -Uri ('http://127.0.0.1:{0}/event-control/status' -f $record.port) -Headers @{'x-cap-stop-token'=$record.token} -UseBasicParsing -TimeoutSec 3
     $live=$reply.StatusCode -eq 200
   } catch { }
-  if($live -or (Get-Process -Id $record.pid -ErrorAction SilentlyContinue)) {throw 'Photobooth is still running. Use Stop Photobooth.cmd, wait until stopped, then run this update again.'}
+  $owner=$null
+  if($record.pid -is [int] -or $record.pid -is [long]) {$owner=Get-CimInstance Win32_Process -Filter ('ProcessId='+$record.pid) -ErrorAction SilentlyContinue}
+  $sameLauncher=$owner -and $owner.CommandLine -and $owner.CommandLine.Contains('event-runner.mjs') -and ($owner.CommandLine.Contains($appRoot) -or ($owner.ExecutablePath -and $owner.ExecutablePath.StartsWith($appRoot+'\',[StringComparison]::OrdinalIgnoreCase)))
+  if($live -or $sameLauncher) {throw 'Photobooth is still running. Use Stop Photobooth.cmd, wait until stopped, then run this update again. If Stop is stuck, restart Windows before installing.'}
+  # A previous Windows reboot can leave the old lock behind; its PID may now
+  # belong to another app. Remove only this stale lock, never that process.
+  Remove-Item -LiteralPath $instance
 }
 $manifest=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'payload-manifest.json') -Raw | ConvertFrom-Json
 $items=@()
 foreach($entry in $manifest) {
   $relative=[string]$entry.file
-  if($relative -notmatch '^(backend/src/(cloud-share|server)\.ts|tools/check-cloud\.mjs|shared/src/index\.ts|frontend/dist/[A-Za-z0-9_./-]+)$' -or $relative -match '(^|/)\.\.(/|$)') {throw 'Invalid update file path.'}
+  if($relative -notmatch '^(backend/src/(cloud-share|server|index|shutdown)\.ts|tools/(check-cloud|event-runner|event-gateway)\.mjs|shared/src/index\.ts|frontend/dist/[A-Za-z0-9_./-]+)$' -or $relative -match '(^|/)\.\.(/|$)') {throw 'Invalid update file path.'}
   $source=Join-Path (Join-Path $PSScriptRoot 'payload') $relative
   if((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ne $entry.sha256) {throw ('Update checksum failed: '+$relative)}
   $target=[IO.Path]::GetFullPath((Join-Path $appRoot $relative))

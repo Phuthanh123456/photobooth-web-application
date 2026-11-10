@@ -8,6 +8,7 @@ import { DesktopSave, windowsSaveDialog } from './desktop-save.js';
 import {readFile} from 'node:fs/promises';
 import {createPublicShareServer,shareOrigin} from './sharing.js';
 import {CloudShares,SupabasePhotoCloud} from './cloud-share.js';
+import {settleCameraForShutdown} from './shutdown.js';
 const root = process.env.STORAGE_ROOT ? path.resolve(process.env.STORAGE_ROOT) : path.resolve(fileURLToPath(new URL('../../storage', import.meta.url)));
 const storage = new FileSessionStorage(root, Number(process.env.TEMPLATE_PAGE ?? 1));
 const cloudProvider=process.env.CLOUD_CONFIG_FILE ? new SupabasePhotoCloud(JSON.parse((await readFile(process.env.CLOUD_CONFIG_FILE,'utf8')).replace(/^\uFEFF/,''))) : undefined;
@@ -47,13 +48,14 @@ let shuttingDown=false;
 async function shutdown() {
   if(shuttingDown) return;shuttingDown=true;
   try {
-    if (engine.snapshot().busy && !['CANCELLED', 'ERROR'].includes(engine.snapshot().status)) engine.cancel();
-    await engine.settled();
-    if ('close' in camera && typeof camera.close === 'function') await camera.close();
+    await settleCameraForShutdown(engine,async()=>{
+      if ('close' in camera && typeof camera.close === 'function') await camera.close();
+    },error=>console.error('Session cancellation during shutdown:',String(error)));
   } catch(error) {console.error('Camera shutdown failed; inspect camera before reconnecting:',String(error));}
   finally {
-    engine.off('state',offerSave);await desktopSave?.close();
-    await cloud?.close();
+    engine.off('state',offerSave);
+    const closed=await Promise.allSettled([desktopSave?.close(),cloud?.close()]);
+    for(const result of closed) if(result.status==='rejected') console.error('Shutdown cleanup failed:',String(result.reason));
     for (const client of wss.clients) client.terminate();
     publicServer?.close();
     server.close();
