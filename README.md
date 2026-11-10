@@ -13,7 +13,7 @@ A photobooth looks simple until several parts must agree at once: a camera can t
 - **Two-device experience:** the laptop is the operator console; the iPad is a display-only screen with live preview, countdown, capture feedback, the finished frame, and a session-specific QR.
 - **Real hardware, behind an adapter:** a Nikon camera interface separates the state machine from both a deterministic mock camera and a Windows native bridge for Nikon's separately installed SDK.
 - **Print-ready composition:** eight photos are placed into the supplied transparent two-strip artwork. Photos are rendered first and the original sticker frame is layered on top. The system exports a final JPG and PDF.
-- **Internet-friendly delivery:** only the verified final JPG is queued for cloud upload. A per-session, unguessable QR link becomes available only after read-back verification. Guests can download over Wi-Fi or cellular data.
+- **Internet-friendly delivery:** the verified final JPG is queued for cloud upload. A unique QR appears after local composition, while upload continues. Guests can scan immediately and keep a waiting page that automatically reveals their photo when it reaches the cloud.
 - **Portable event launch:** Windows scripts package and start the local app on the event laptop. No public camera-control server or developer laptop is required at the venue.
 
 ## System overview
@@ -111,7 +111,7 @@ For an event, `npm run event:package` creates a Windows x64 ZIP under the ignore
 
 ## Guest downloads and deployment boundary
 
-The `cloud/guest/` directory is the public static photo-download experience; it is not the camera application. The Windows laptop still runs the camera, countdown, state machine and local operator UI. Supabase stores only a completed, framed JPG after upload and SHA-256 read-back verification. A random link is created per four-photo session; it does not expose the operator interface, originals, PDF, manifest, live view or camera controls.
+The `cloud/guest/` directory is the public static photo-download experience; it is not the camera application. The Windows laptop runs the camera, countdown, state machine and local operator UI. Supabase receives only a locally verified, completed framed JPG. A random link is created per four-photo session after composition, and the guest page checks every three seconds until the upload is available. The public uploader ID is discovered at startup and cached for subsequent offline QR generation; a first-ever offline startup cannot discover this ID. The link does not expose the operator interface, originals, PDF, manifest, live view or camera controls.
 
 Set up a Supabase Storage bucket and its access policies using [`cloud/storage.sql`](cloud/storage.sql), deploy **only** `cloud/guest/` as a static site, then run `Configure Cloud.cmd` on the event laptop. It asks for the project URL, publishable/anon key, and a dedicated uploader account; the password is entered securely and stored in the machine-local ignored `.local/` directory. **Never use a Supabase service-role/secret key in the client or organizer laptop.**
 
@@ -138,7 +138,7 @@ At the latest recorded verification, the project passed 83 backend tests, 8 brow
 - The public guest service handles a narrowly scoped, random-link download. It cannot start sessions or access camera operations.
 - Credentials, generated images, local cloud configuration, SDK binaries and hardware-validation artifacts are ignored and must remain out of Git.
 - Guest QR links are bearer links: anyone who receives a link can view that session's shared JPG. Provide the event's privacy notice and retention policy separately; this version does not automatically expire uploaded photos.
-- A network interruption may delay a guest QR becoming ready. The local capture and verified output remain on the event laptop; upload retries do not repeat camera captures.
+- A network interruption delays the photo becoming downloadable, even when its QR is already visible. Keep the event laptop running until queued uploads complete; retries do not repeat camera captures.
 
 ## Project notes
 

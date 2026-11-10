@@ -35,6 +35,37 @@ it('persists an offline job, retries after restart, and retains earlier links',a
   await restarted.close();const again=new CloudShares(storage,cloud);queues.push(again);await again.start();await again.settled();
   expect(again.info(state)?.url).toBe(url);expect(cloud.publish).toHaveBeenCalledTimes(2);
 });
+it('offers the same QR while upload is pending, offline, and after restart',async()=> {
+  cloud.guestUrl=()=>url;
+  vi.mocked(cloud.publish).mockRejectedValue(new Error('offline'));
+  queue.observe(state);
+  expect(queue.info(state)?.url).toBe(url);
+  expect(queue.qrUrl(token)).toBe(url);
+  await queue.settled();
+  expect(queue.status(state)?.status).toBe('waiting');
+  expect(queue.status(state)?.error).toBeUndefined();
+  expect(queue.status(state,true)?.error).toBe('offline');
+  expect(queue.info(state)?.url).toBe(url);
+  await queue.close();
+  const restarted=new CloudShares(storage,cloud);queues.push(restarted);await restarted.start();await restarted.settled();
+  expect(restarted.info(state)?.url).toBe(url);
+  expect(restarted.info({...state,status:'COUNTDOWN'})).toBeUndefined();
+  await restarted.revoke(id,token);
+  expect(restarted.qrUrl(token)).toBeUndefined();
+});
+it('discovers uploader identity before capture and restores it offline on the next launch',async()=> {
+  cloud.namespace='identity-test';
+  cloud.prepare=vi.fn(async()=>{cloud.identity=uid;});
+  cloud.restoreIdentity=vi.fn((value:string)=>{cloud.identity=value;});
+  cloud.guestUrl=()=>cloud.identity ? url : undefined;
+  queue.retry();await queue.settled();
+  expect(cloud.prepare).toHaveBeenCalledOnce();
+  cloud.identity=undefined;
+  await queue.close();
+  const restarted=new CloudShares(storage,cloud);queues.push(restarted);await restarted.start();await restarted.settled();
+  expect(cloud.restoreIdentity).toHaveBeenCalledWith(uid);
+  expect(cloud.prepare).toHaveBeenCalledOnce();
+});
 it('rejects corrupt/incomplete local output without ever uploading it',async()=> {
   vi.mocked(storage.readSharedJpeg).mockRejectedValue(new Error('Final JPEG verification failed'));
   queue.observe(state);await queue.settled();expect(cloud.publish).not.toHaveBeenCalled();expect(queue.status(state)?.status).toBe('waiting');

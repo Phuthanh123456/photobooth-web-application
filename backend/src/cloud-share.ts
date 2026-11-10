@@ -9,6 +9,10 @@ import {shareOrigin} from './sharing.js';
 export interface CloudConfig { projectUrl:string; anonKey:string; email:string; password:string; bucket:string; guestOrigin:string }
 export interface PhotoCloud {
   namespace?:string;
+  identity?:string;
+  restoreIdentity?(uid:string):void;
+  prepare?():Promise<void>;
+  guestUrl?(token:string):string|undefined;
   publish(token:string,jpeg:Buffer):Promise<string>;
   remove(token:string,publishedUrl?:string):Promise<void>;
 }
@@ -30,6 +34,7 @@ export class SupabasePhotoCloud implements PhotoCloud {
   private config:CloudConfig;
   readonly namespace:string;
   private auth?:{token:string;uid:string;expires:number};
+  identity?:string;
   constructor(config:CloudConfig,private request:typeof fetch=fetch) {
     this.config=validateCloudConfig(config);
     this.namespace=digest(Buffer.from(JSON.stringify([this.config.projectUrl,this.config.bucket,this.config.email.trim().toLowerCase()])));
@@ -40,9 +45,21 @@ export class SupabasePhotoCloud implements PhotoCloud {
       if(!response.ok) throw new Error(`Cloud sign-in failed (${response.status}); check the uploader account`);
       const data=await response.json();
       if(typeof data.access_token!=='string' || !/^[a-f0-9-]{36}$/i.test(data.user?.id ?? '') || !Number.isFinite(data.expires_in)) throw new Error('Invalid cloud sign-in response');
+      if(this.identity && this.identity!==data.user.id) throw new Error('Cloud uploader identity changed; check the original uploader account');
+      this.identity=data.user.id;
       this.auth={token:data.access_token,uid:data.user.id,expires:Date.now()+data.expires_in*1000};
     }
     return {apikey:this.config.anonKey,Authorization:`Bearer ${this.auth.token}`};
+  }
+  restoreIdentity(uid:string) {
+    if(!/^[a-f0-9-]{36}$/i.test(uid)) throw new Error('Invalid cached cloud uploader identity');
+    this.identity=uid;
+  }
+  async prepare() {await this.headers();}
+  guestUrl(token:string) {
+    if(!this.identity || !validShareToken(token)) return undefined;
+    const ref=new URL(this.config.projectUrl).hostname.split('.')[0];
+    return `${this.config.guestOrigin}/#${ref}/${this.config.bucket}/${this.identity}/${token}.jpg`;
   }
   private object(token:string) {
     if(!validShareToken(token) || !this.auth) throw new Error('Invalid cloud photo identifier');
@@ -89,6 +106,7 @@ export class CloudShares extends EventEmitter {
   private timer?:ReturnType<typeof setInterval>;
   private errors=new Map<string,string>();
   private closed=false;
+  private preparingIdentity=false;
   constructor(private storage:FileSessionStorage,private cloud:PhotoCloud) {super();}
   private directory() {return path.join(this.storage.root,'cloud-jobs');}
   private async persist(job:Job) {
@@ -97,6 +115,10 @@ export class CloudShares extends EventEmitter {
     await writeFile(`${target}.tmp`,JSON.stringify(job,null,2));await rename(`${target}.tmp`,target);
   }
   async start(intervalMs=15_000) {
+    try {
+      const cached=JSON.parse(await readFile(path.join(this.directory(),'account.json'),'utf8'));
+      if(cached.namespace===this.cloud.namespace) this.cloud.restoreIdentity?.(cached.uid);
+    } catch(error) {if((error as NodeJS.ErrnoException).code!=='ENOENT') throw error;}
     for(const name of await readdir(this.directory()).catch(error=>{if(error.code==='ENOENT') return [];throw error;})) {
       if(!/^[A-Za-z0-9_-]{32}\.json$/.test(name)) continue;
       const job:Job=JSON.parse(await readFile(path.join(this.directory(),name),'utf8'));
@@ -135,11 +157,30 @@ export class CloudShares extends EventEmitter {
       finally {this.scheduled.delete(job.token);this.emit('change');}
     });
   }
-  retry() {for(const job of this.jobs.values()) if(['pending','deleting'].includes(job.status)) this.enqueue(job);}
+  retry() {
+    if(this.closed) return;
+    if(this.cloud.prepare && !this.cloud.identity && !this.preparingIdentity) {
+      this.preparingIdentity=true;
+      this.work=this.work.then(async()=> {
+        try {
+          await this.cloud.prepare!();
+          if(this.cloud.identity) {
+            await mkdir(this.directory(),{recursive:true});
+            const account=path.join(this.directory(),'account.json');
+            await writeFile(`${account}.tmp`,JSON.stringify({namespace:this.cloud.namespace,uid:this.cloud.identity}));
+            await rename(`${account}.tmp`,account);
+          }
+        } catch { /* Offline capture remains available; retry identity discovery later. */ }
+        finally {this.preparingIdentity=false;this.emit('change');}
+      });
+    }
+    for(const job of this.jobs.values()) if(['pending','deleting'].includes(job.status)) this.enqueue(job);
+  }
   info(state:SessionState):SessionState['share'] {
     const token=state.output?.sharePath?.split('/').at(-1),job=token ? this.jobs.get(token) : undefined;
-    if(state.status!=='COMPLETE' || !job || job.status!=='ready' || !job.url) return undefined;
-    return {url:job.url,qrImagePath:`/s/${job.token}/qr.svg`};
+    if(state.status!=='COMPLETE' || !job || !['pending','ready'].includes(job.status)) return undefined;
+    const url=job.url ?? this.cloud.guestUrl?.(job.token);
+    return url ? {url,qrImagePath:`/s/${job.token}/qr.svg`} : undefined;
   }
   status(state:SessionState,includeError=false):SessionState['cloudUpload'] {
     if(state.status!=='COMPLETE') return undefined;
@@ -147,7 +188,10 @@ export class CloudShares extends EventEmitter {
     const error=this.errors.get(token ?? '');
     return {status:job?.status==='ready' ? 'ready' : error ? 'waiting' : 'uploading',...(includeError && error ? {error} : {})};
   }
-  qrUrl(token:string) {const job=this.jobs.get(token);return job?.status==='ready' ? job.url : undefined;}
+  qrUrl(token:string) {
+    const job=this.jobs.get(token);
+    return job && ['pending','ready'].includes(job.status) ? job.url ?? this.cloud.guestUrl?.(token) : undefined;
+  }
   async revoke(id:string,token:string) {
     const job=this.jobs.get(token);if(!job || job.status==='revoked') return;
     if(job.sessionId!==id) throw new Error('Refusing to delete another cloud photo');
