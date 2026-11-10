@@ -1,8 +1,8 @@
 -- Run once in your own Supabase SQL editor. No service-role key goes in the app.
 -- In Authentication, create/confirm one uploader user per organizer. Disable public signup.
 insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
-values ('cap-photos','cap-photos',true,10485760,array['image/jpeg'])
-on conflict (id) do update set public=true,file_size_limit=10485760,allowed_mime_types=array['image/jpeg'];
+values ('cap-photos','cap-photos',true,26214400,array['image/jpeg'])
+on conflict (id) do update set public=true,file_size_limit=26214400,allowed_mime_types=array['image/jpeg'];
 
 drop policy if exists "CAP uploader insert own JPG" on storage.objects;
 create policy "CAP uploader insert own JPG" on storage.objects for insert to authenticated

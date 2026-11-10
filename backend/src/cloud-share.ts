@@ -132,10 +132,11 @@ export class CloudShares extends EventEmitter {
     if(state.status!=='COMPLETE' || !job || job.status!=='ready' || !job.url) return undefined;
     return {url:job.url,qrImagePath:`/s/${job.token}/qr.svg`};
   }
-  status(state:SessionState):SessionState['cloudUpload'] {
+  status(state:SessionState,includeError=false):SessionState['cloudUpload'] {
     if(state.status!=='COMPLETE') return undefined;
     const token=state.output?.sharePath?.split('/').at(-1),job=token ? this.jobs.get(token) : undefined;
-    return {status:job?.status==='ready' ? 'ready' : this.errors.has(token ?? '') ? 'waiting' : 'uploading'};
+    const error=includeError ? this.errors.get(token ?? '') : undefined;
+    return {status:job?.status==='ready' ? 'ready' : error ? 'waiting' : 'uploading',...(error ? {error} : {})};
   }
   qrUrl(token:string) {const job=this.jobs.get(token);return job?.status==='ready' ? job.url : undefined;}
   async revoke(id:string,token:string) {
