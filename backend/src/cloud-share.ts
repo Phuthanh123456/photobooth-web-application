@@ -56,9 +56,15 @@ export class SupabasePhotoCloud implements PhotoCloud {
     // back to the organizer laptop. The upload response + HEAD metadata verify
     // publication and byte length while avoiding a second transfer of large JPGs.
     const remote=await this.request(`${this.config.projectUrl}/storage/v1/object/public/${this.config.bucket}/${object}`,{method:'HEAD',headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(15_000)});
-    if(!remote.ok) throw new Error('Cloud photo read-back failed; QR is not ready');
     const remoteLength=Number(remote.headers.get('content-length'));
-    if(remote.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='image/jpeg' || remoteLength!==jpeg.length) throw new Error('Cloud photo verification failed; QR is not ready');
+    if(!remote.ok || remote.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='image/jpeg' || remoteLength!==jpeg.length) {
+      // Some storage/CDN responses omit HEAD metadata. Fall back to the original
+      // byte verification instead of permanently rejecting an available photo.
+      const full=await this.request(`${this.config.projectUrl}/storage/v1/object/public/${this.config.bucket}/${object}`,{headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(45_000)});
+      if(!full.ok) throw new Error(`Cloud photo read-back failed (${full.status}); QR is not ready`);
+      const bytes=Buffer.from(await full.arrayBuffer());
+      if(bytes.length!==jpeg.length || digest(bytes)!==digest(jpeg)) throw new Error('Cloud photo verification failed; QR is not ready');
+    }
     const ref=new URL(this.config.projectUrl).hostname.split('.')[0];
     return `${this.config.guestOrigin}/#${ref}/${this.config.bucket}/${object}`;
   }
@@ -138,8 +144,8 @@ export class CloudShares extends EventEmitter {
   status(state:SessionState,includeError=false):SessionState['cloudUpload'] {
     if(state.status!=='COMPLETE') return undefined;
     const token=state.output?.sharePath?.split('/').at(-1),job=token ? this.jobs.get(token) : undefined;
-    const error=includeError ? this.errors.get(token ?? '') : undefined;
-    return {status:job?.status==='ready' ? 'ready' : error ? 'waiting' : 'uploading',...(error ? {error} : {})};
+    const error=this.errors.get(token ?? '');
+    return {status:job?.status==='ready' ? 'ready' : error ? 'waiting' : 'uploading',...(includeError && error ? {error} : {})};
   }
   qrUrl(token:string) {const job=this.jobs.get(token);return job?.status==='ready' ? job.url : undefined;}
   async revoke(id:string,token:string) {

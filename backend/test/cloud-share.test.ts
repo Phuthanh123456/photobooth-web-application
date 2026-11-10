@@ -71,8 +71,14 @@ it('uses a dedicated user, idempotent JPG upload, lightweight read-back and a cr
   expect(request.mock.calls[3][1]?.method).toBe('DELETE');expect(request).toHaveBeenCalledTimes(4);
 });
 it('never publishes a QR for a cloud JPEG with different metadata',async()=> {
-  const request=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({access_token:'session',expires_in:3600,user:{id:uid}})).mockResolvedValueOnce(Response.json({})).mockResolvedValueOnce(new Response(null,{status:200,headers:{'content-type':'image/jpeg','content-length':'99'}}));
+  const request=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({access_token:'session',expires_in:3600,user:{id:uid}})).mockResolvedValueOnce(Response.json({})).mockResolvedValueOnce(new Response(null,{status:200,headers:{'content-type':'image/jpeg','content-length':'99'}})).mockResolvedValueOnce(new Response('corrupted'));
   await expect(new SupabasePhotoCloud(config,request).publish(token,Buffer.from('original'))).rejects.toThrow('verification failed');
+});
+it('falls back to byte verification when storage omits HEAD metadata',async()=> {
+  const jpeg=Buffer.from('original');
+  const request=vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({access_token:'session',expires_in:3600,user:{id:uid}})).mockResolvedValueOnce(Response.json({})).mockResolvedValueOnce(new Response(null)).mockResolvedValueOnce(new Response(jpeg));
+  expect(await new SupabasePhotoCloud(config,request).publish(token,jpeg)).toBe(url);
+  expect(request.mock.calls[2][1]?.method).toBe('HEAD');
 });
 it('does not leak sign-in response bodies or credentials through errors',async()=> {
   const request=vi.fn<typeof fetch>().mockResolvedValueOnce(new Response('private error containing password',{status:401}));
